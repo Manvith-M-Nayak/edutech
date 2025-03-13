@@ -13,9 +13,17 @@ router.post('/questions', verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: "All fields are required" });
         }
 
+        // ✅ Check if the title already exists
+        const existingQuestion = await Question.findOne({ title });
+        if (existingQuestion) {
+            return res.status(400).json({ message: `A question with the title "${title}" already exists. Please use a different title.` });
+        }
+
+        // ✅ Create and save new question
         const question = new Question(req.body);
         await question.save();
         res.status(201).json({ message: "Question added successfully", question });
+
     } catch (error) {
         console.error("Error adding question:", error);
         res.status(500).json({ message: "Internal server error", error });
@@ -37,6 +45,15 @@ router.get('/questions', verifyAdmin, async (req, res) => {
 router.put('/questions/:id', verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // ✅ Check if the new title already exists (only if title is being updated)
+        if (req.body.title) {
+            const existingQuestion = await Question.findOne({ title: req.body.title });
+            if (existingQuestion && existingQuestion._id.toString() !== id) {
+                return res.status(400).json({ message: `A question with the title "${req.body.title}" already exists. Please choose a different title.` });
+            }
+        }
+
         const updatedQuestion = await Question.findByIdAndUpdate(id, req.body, { new: true });
 
         if (!updatedQuestion) {

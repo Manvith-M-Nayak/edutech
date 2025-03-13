@@ -3,8 +3,9 @@ import React, { useEffect, useState } from 'react';
 const AdminDashboard = () => {
     const [questions, setQuestions] = useState([]);
     const [newQuestion, setNewQuestion] = useState({
-        title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: ''
+        title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1
     });
+    const [editingQuestionId, setEditingQuestionId] = useState(null); // ✅ Track the question being edited
 
     const token = localStorage.getItem('authToken'); // ✅ Get authentication token
 
@@ -37,14 +38,14 @@ const AdminDashboard = () => {
     // Fetch questions when component loads
     useEffect(() => {
         fetchQuestions();
-    }, []);
+    });
 
     // Handle input changes
     const handleChange = (e) => {
         setNewQuestion({ ...newQuestion, [e.target.name]: e.target.value });
     };
 
-    // Handle form submission to add a question
+    // Handle form submission to add or update a question
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -53,8 +54,14 @@ const AdminDashboard = () => {
             return;
         }
 
-        fetch('http://localhost:5000/admin/questions', {
-            method: 'POST',
+        const url = editingQuestionId 
+            ? `http://localhost:5000/admin/questions/${editingQuestionId}`  // ✅ Update endpoint for editing
+            : 'http://localhost:5000/admin/questions';  // ✅ Add endpoint
+
+        const method = editingQuestionId ? 'PUT' : 'POST'; // ✅ Use PUT if editing
+
+        fetch(url, {
+            method: method,
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}` // ✅ Ensure admin authentication
@@ -64,15 +71,50 @@ const AdminDashboard = () => {
         .then(res => res.json())
         .then(data => {
             console.log("Response:", data); // ✅ Debugging
-            if (data.message === "Question added successfully") {
-                setQuestions([...questions, data.question]); // ✅ Add new question to the list
-                alert("Question added successfully!");
-                setNewQuestion({ title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '' });
+            if (data.message.includes("successfully")) {
+                alert(data.message);
+                setNewQuestion({ title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1 });
+                setEditingQuestionId(null); // ✅ Reset edit mode
+                fetchQuestions(); // ✅ Refresh list
             } else {
-                alert("Failed to add question: " + data.message);
+                alert("Failed: " + data.message);
             }
         })
-        .catch(err => console.error('Error adding question:', err));
+        .catch(err => console.error('Error:', err));
+    };
+
+    // Handle edit button click
+    const handleEdit = (question) => {
+        setNewQuestion(question);
+        setEditingQuestionId(question._id);
+    };
+
+    // Handle cancel edit
+    const handleCancelEdit = () => {
+        setNewQuestion({ title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1 });
+        setEditingQuestionId(null);
+    };
+
+    // ✅ Delete a question
+    const handleDelete = (id) => {
+        if (!window.confirm("Are you sure you want to delete this question?")) {
+            return;
+        }
+
+        fetch(`http://localhost:5000/admin/questions/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // ✅ Ensure admin authentication
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log("Delete Response:", data);
+            alert(data.message);
+            fetchQuestions(); // ✅ Refresh list after deletion
+        })
+        .catch(err => console.error('Error deleting question:', err));
     };
 
     return (
@@ -90,7 +132,9 @@ const AdminDashboard = () => {
                 <input name="category" placeholder="Category" value={newQuestion.category} onChange={handleChange} required />
                 <textarea name="exampleInput" placeholder="Example Input" value={newQuestion.exampleInput} onChange={handleChange} required />
                 <textarea name="exampleOutput" placeholder="Example Output" value={newQuestion.exampleOutput} onChange={handleChange} required />
-                <button type="submit">Add Question</button>
+                <input name="points" placeholder='points' value={newQuestion.points} onChange={handleChange} required />
+                <button type="submit">{editingQuestionId ? "Update Question" : "Add Question"}</button>
+                {editingQuestionId && <button type="button" onClick={handleCancelEdit}>Cancel</button>}
             </form>
 
             <h3>Existing Questions</h3>
@@ -99,8 +143,8 @@ const AdminDashboard = () => {
                     questions.map(q => (
                         <li key={q._id}>
                             {q.title} - {q.difficulty}
-                            <button onClick={() => console.log('Edit Logic Here')}>Edit</button>
-                            <button onClick={() => console.log('Delete Logic Here')}>Delete</button>
+                            <button onClick={() => handleEdit(q)}>Edit</button>
+                            <button onClick={() => handleDelete(q._id)}>Delete</button>
                         </li>
                     ))
                 ) : (

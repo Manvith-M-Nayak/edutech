@@ -6,7 +6,8 @@ const QuestionSchema = new mongoose.Schema({
     difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], required: true },
     category: { type: String, required: true },
     exampleInput: { type: String, required: true },
-    exampleOutput: { type: String, required: true }
+    exampleOutput: { type: String, required: true },
+    points: { type: Number, required: true}
 }, { timestamps: true });
 
 module.exports = mongoose.model('Question', QuestionSchema);
