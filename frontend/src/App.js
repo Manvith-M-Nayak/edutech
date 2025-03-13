@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'reac
 import Login from './components/Login';
 import Register from './components/Register'; 
 import AdminDashboard from "./AdminDashboard";
-
+import Profile from "./components/Profile"
 //manvith is an fool S
 
 // Home component with more options
@@ -133,89 +133,89 @@ const Home = () => {
 };
 
 
-// Profile component
-const Profile = () => (
-  <div style={{
-    padding: '40px',
-    textAlign: 'center',
-    maxWidth: '800px',
-    margin: '50px auto',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-  }}>
-    <h1 style={{ color: '#4a54eb', marginBottom: '20px' }}>Profile Page</h1>
+// // Profile component
+// const Profile = () => (
+//   <div style={{
+//     padding: '40px',
+//     textAlign: 'center',
+//     maxWidth: '800px',
+//     margin: '50px auto',
+//     backgroundColor: 'white',
+//     borderRadius: '8px',
+//     boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+//   }}>
+//     <h1 style={{ color: '#4a54eb', marginBottom: '20px' }}>Profile Page</h1>
     
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: '30px'
-    }}>
-      <div style={{
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        backgroundColor: '#4a54eb',
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '32px',
-        marginRight: '20px'
-      }}>J</div>
-      <div style={{ textAlign: 'left' }}>
-        <h2 style={{ margin: '0 0 5px 0' }}>John Doe</h2>
-        <p style={{ margin: '0 0 5px 0', color: '#666' }}>Level 5</p>
-        <div style={{
-          backgroundColor: '#4a54eb',
-          color: 'white',
-          padding: '3px 10px',
-          borderRadius: '15px',
-          display: 'inline-block',
-          fontSize: '14px'
-        }}>1250 Points</div>
-      </div>
-    </div>
+//     <div style={{
+//       display: 'flex',
+//       alignItems: 'center',
+//       justifyContent: 'center',
+//       marginBottom: '30px'
+//     }}>
+//       <div style={{
+//         width: '80px',
+//         height: '80px',
+//         borderRadius: '50%',
+//         backgroundColor: '#4a54eb',
+//         color: 'white',
+//         display: 'flex',
+//         alignItems: 'center',
+//         justifyContent: 'center',
+//         fontSize: '32px',
+//         marginRight: '20px'
+//       }}>J</div>
+//       <div style={{ textAlign: 'left' }}>
+//         <h2 style={{ margin: '0 0 5px 0' }}>John Doe</h2>
+//         <p style={{ margin: '0 0 5px 0', color: '#666' }}>Level 5</p>
+//         <div style={{
+//           backgroundColor: '#4a54eb',
+//           color: 'white',
+//           padding: '3px 10px',
+//           borderRadius: '15px',
+//           display: 'inline-block',
+//           fontSize: '14px'
+//         }}>1250 Points</div>
+//       </div>
+//     </div>
     
-    <div style={{
-      backgroundColor: '#f8f9fa',
-      padding: '20px',
-      borderRadius: '8px',
-      marginBottom: '20px',
-      textAlign: 'left'
-    }}>
-      <h3 style={{ marginBottom: '15px' }}>Badges</h3>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-        gap: '15px'
-      }}>
-        <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>🐍</span>
-          <p style={{ margin: 0, fontSize: '14px' }}>Python Master</p>
-        </div>
-        <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>🏆</span>
-          <p style={{ margin: 0, fontSize: '14px' }}>C Champion</p>
-        </div>
-        <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>👥</span>
-          <p style={{ margin: 0, fontSize: '14px' }}>Team Player</p>
-        </div>
-      </div>
-    </div>
+//     <div style={{
+//       backgroundColor: '#f8f9fa',
+//       padding: '20px',
+//       borderRadius: '8px',
+//       marginBottom: '20px',
+//       textAlign: 'left'
+//     }}>
+//       <h3 style={{ marginBottom: '15px' }}>Badges</h3>
+//       <div style={{
+//         display: 'grid',
+//         gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+//         gap: '15px'
+//       }}>
+//         <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
+//           <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>🐍</span>
+//           <p style={{ margin: 0, fontSize: '14px' }}>Python Master</p>
+//         </div>
+//         <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
+//           <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>🏆</span>
+//           <p style={{ margin: 0, fontSize: '14px' }}>C Champion</p>
+//         </div>
+//         <div style={{ textAlign: 'center', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
+//           <span style={{ fontSize: '24px', display: 'block', marginBottom: '5px' }}>👥</span>
+//           <p style={{ margin: 0, fontSize: '14px' }}>Team Player</p>
+//         </div>
+//       </div>
+//     </div>
     
-    <Link to="/" style={{ 
-      backgroundColor: '#4a54eb', 
-      color: 'white', 
-      padding: '10px 20px', 
-      borderRadius: '5px',
-      textDecoration: 'none',
-      display: 'inline-block'
-    }}>Back to Home</Link>
-  </div>
-);
+//     <Link to="/" style={{ 
+//       backgroundColor: '#4a54eb', 
+//       color: 'white', 
+//       padding: '10px 20px', 
+//       borderRadius: '5px',
+//       textDecoration: 'none',
+//       display: 'inline-block'
+//     }}>Back to Home</Link>
+//   </div>
+// );
 
 // Language Selection component
 const LanguageSelection = () => {
