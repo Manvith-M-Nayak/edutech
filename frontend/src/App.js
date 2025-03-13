@@ -4,7 +4,7 @@ import Login from './components/Login';
 import Register from './components/Register'; 
 import AdminDashboard from "./AdminDashboard";
 
-
+//manvith is an fool S
 
 // Home component with more options
 const Home = () => {
