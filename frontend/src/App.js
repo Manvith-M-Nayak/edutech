@@ -3,134 +3,134 @@ import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'reac
 import Login from './components/Login';
 import Register from './components/Register'; 
 import AdminDashboard from "./AdminDashboard";
-import Profile from "./components/Profile"
+import Profile from "./components/Profile";
+import Home from "./components/Home";
+
 //manvith is an fool S
 
 // Home component with more options
-const Home = () => {
-  // Retrieve user from localStorage (Assumes user data is stored after login)
-  const user = JSON.parse(localStorage.getItem('user')) || {};
+// const Home = () => {
+//   const user = JSON.parse(localStorage.getItem('user')) || {};
+//   return (
+//     <div style={{
+//       padding: '40px',
+//       textAlign: 'center',
+//       maxWidth: '800px',
+//       margin: '50px auto',
+//       backgroundColor: 'white',
+//       borderRadius: '8px',
+//       boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+//     }}>
+//       <h1 style={{ color: '#4a54eb', marginBottom: '20px' }}>EduTech Platform</h1>
+//       <p style={{ fontSize: '18px', marginBottom: '30px' }}>
+//         Welcome to the educational technology platform!
+//       </p>
 
-  return (
-    <div style={{
-      padding: '40px',
-      textAlign: 'center',
-      maxWidth: '800px',
-      margin: '50px auto',
-      backgroundColor: 'white',
-      borderRadius: '8px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-    }}>
-      <h1 style={{ color: '#4a54eb', marginBottom: '20px' }}>EduTech Platform</h1>
-      <p style={{ fontSize: '18px', marginBottom: '30px' }}>
-        Welcome to the educational technology platform!
-      </p>
+//       <div style={{ 
+//         display: 'grid', 
+//         gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+//         gap: '20px',
+//         margin: '0 auto',
+//         maxWidth: '600px'
+//       }}>
+//         {/* Profile Section */}
+//         <div style={{
+//           padding: '20px',
+//           backgroundColor: '#f8f9fa',
+//           borderRadius: '8px',
+//           boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+//           display: 'flex',
+//           flexDirection: 'column',
+//           alignItems: 'center'
+//         }}>
+//           <span style={{ fontSize: '32px', marginBottom: '10px' }}>👤</span>
+//           <h3 style={{ marginBottom: '10px' }}>My Profile</h3>
+//           <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>View your achievements and progress</p>
+//           <Link to="/profile" style={{ 
+//             backgroundColor: '#4a54eb', 
+//             color: 'white', 
+//             padding: '8px 16px', 
+//             borderRadius: '5px',
+//             textDecoration: 'none',
+//             fontWeight: 'bold'
+//           }}>View Profile</Link>
+//         </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
-        margin: '0 auto',
-        maxWidth: '600px'
-      }}>
-        {/* Profile Section */}
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontSize: '32px', marginBottom: '10px' }}>👤</span>
-          <h3 style={{ marginBottom: '10px' }}>My Profile</h3>
-          <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>View your achievements and progress</p>
-          <Link to="/profile" style={{ 
-            backgroundColor: '#4a54eb', 
-            color: 'white', 
-            padding: '8px 16px', 
-            borderRadius: '5px',
-            textDecoration: 'none',
-            fontWeight: 'bold'
-          }}>View Profile</Link>
-        </div>
+//         {/* Programming Section */}
+//         <div style={{
+//           padding: '20px',
+//           backgroundColor: '#f8f9fa',
+//           borderRadius: '8px',
+//           boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+//           display: 'flex',
+//           flexDirection: 'column',
+//           alignItems: 'center'
+//         }}>
+//           <span style={{ fontSize: '32px', marginBottom: '10px' }}>💻</span>
+//           <h3 style={{ marginBottom: '10px' }}>Programming</h3>
+//           <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Choose a programming language</p>
+//           <Link to="/languages" style={{ 
+//             backgroundColor: '#4a54eb', 
+//             color: 'white', 
+//             padding: '8px 16px', 
+//             borderRadius: '5px',
+//             textDecoration: 'none',
+//             fontWeight: 'bold'
+//           }}>Select Language</Link>
+//         </div>
 
-        {/* Programming Section */}
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontSize: '32px', marginBottom: '10px' }}>💻</span>
-          <h3 style={{ marginBottom: '10px' }}>Programming</h3>
-          <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Choose a programming language</p>
-          <Link to="/languages" style={{ 
-            backgroundColor: '#4a54eb', 
-            color: 'white', 
-            padding: '8px 16px', 
-            borderRadius: '5px',
-            textDecoration: 'none',
-            fontWeight: 'bold'
-          }}>Select Language</Link>
-        </div>
+//         {/* Teacher Help Section */}
+//         <div style={{
+//           padding: '20px',
+//           backgroundColor: '#f8f9fa',
+//           borderRadius: '8px',
+//           boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+//           display: 'flex',
+//           flexDirection: 'column',
+//           alignItems: 'center'
+//         }}>
+//           <span style={{ fontSize: '32px', marginBottom: '10px' }}>🧑‍🏫</span>
+//           <h3 style={{ marginBottom: '10px' }}>Teacher Help</h3>
+//           <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Get assistance from teachers</p>
+//           <Link to="/assistance" style={{ 
+//             backgroundColor: '#4a54eb', 
+//             color: 'white', 
+//             padding: '8px 16px', 
+//             borderRadius: '5px',
+//             textDecoration: 'none',
+//             fontWeight: 'bold'
+//           }}>Get Help</Link>
+//         </div>
 
-        {/* Teacher Help Section */}
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontSize: '32px', marginBottom: '10px' }}>🧑‍🏫</span>
-          <h3 style={{ marginBottom: '10px' }}>Teacher Help</h3>
-          <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Get assistance from teachers</p>
-          <Link to="/assistance" style={{ 
-            backgroundColor: '#4a54eb', 
-            color: 'white', 
-            padding: '8px 16px', 
-            borderRadius: '5px',
-            textDecoration: 'none',
-            fontWeight: 'bold'
-          }}>Get Help</Link>
-        </div>
+//         {/* Admin Panel (Only visible for admins) */}
+//         {user?.isAdmin && (
+//           <div style={{
+//             padding: '20px',
+//             backgroundColor: '#ffe0b2',
+//             borderRadius: '8px',
+//             boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+//             display: 'flex',
+//             flexDirection: 'column',
+//             alignItems: 'center'
+//           }}>
+//             <span style={{ fontSize: '32px', marginBottom: '10px' }}>⚙️</span>
+//             <h3 style={{ marginBottom: '10px' }}>Admin Panel</h3>
+//             <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Manage coding challenges</p>
+//             <Link to="/admin" style={{ 
+//               backgroundColor: '#ff9800', 
+//               color: 'white', 
+//               padding: '8px 16px', 
+//               borderRadius: '5px',
+//               textDecoration: 'none',
+//               fontWeight: 'bold'
+//             }}>Go to Admin Panel</Link>
+//           </div>
+//         )}
 
-        {/* Admin Panel (Only visible for admins) */}
-        {user?.isAdmin && (
-          <div style={{
-            padding: '20px',
-            backgroundColor: '#ffe0b2',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}>
-            <span style={{ fontSize: '32px', marginBottom: '10px' }}>⚙️</span>
-            <h3 style={{ marginBottom: '10px' }}>Admin Panel</h3>
-            <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>Manage coding challenges</p>
-            <Link to="/admin" style={{ 
-              backgroundColor: '#ff9800', 
-              color: 'white', 
-              padding: '8px 16px', 
-              borderRadius: '5px',
-              textDecoration: 'none',
-              fontWeight: 'bold'
-            }}>Go to Admin Panel</Link>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-};
+//       </div>
+//     </div>
+//   );
+// };
 
 
 // // Profile component

@@ -8,7 +8,8 @@ const Profile = () => {
 
     const token = localStorage.getItem('authToken'); // ✅ Fetch token for authentication
     const userData = JSON.parse(localStorage.getItem('user'));
-  const username = userData ? userData.username : null;
+    const username = userData ? userData.username : null;
+    
     useEffect(() => {
         if (!token || !username) {
             setError("User not logged in.");
