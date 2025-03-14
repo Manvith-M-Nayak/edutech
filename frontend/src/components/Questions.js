@@ -1,102 +1,134 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import './Questions.css';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 const Questions = () => {
-  const { languageId, typeId } = useParams();
-  const navigate = useNavigate();
-  
-  // Map to display proper names
-  const languages = {
-    c: 'C Programming',
-    python: 'Python'
-  };
-  
-  const questionTypes = {
-    starred: 'Starred Questions',
-    team: 'Team Based Questions',
-    daily: 'Daily Challenges'
-  };
-  
-  // Mock data for questions based on language and type
-  const mockQuestions = {
-    c: {
-      starred: [
-        { id: 1, title: 'Implement a Stack using Arrays', difficulty: 'Medium' },
-        { id: 2, title: 'Create a Linked List implementation', difficulty: 'Hard' },
-        { id: 3, title: 'Write a program for Binary Search', difficulty: 'Easy' }
-      ],
-      team: [
-        { id: 4, title: 'Build a Simple File System', difficulty: 'Hard' },
-        { id: 5, title: 'Create a Chat Application using Sockets', difficulty: 'Hard' },
-        { id: 6, title: 'Implement a Basic Database System', difficulty: 'Expert' }
-      ],
-      daily: [
-        { id: 7, title: 'Reverse a String without using library function', difficulty: 'Easy' },
-        { id: 8, title: 'Find the largest element in an array', difficulty: 'Easy' },
-        { id: 9, title: 'Implement Quicksort Algorithm', difficulty: 'Medium' }
-      ]
-    },
-    python: {
-      starred: [
-        { id: 10, title: 'Create a Web Scraper', difficulty: 'Medium' },
-        { id: 11, title: 'Implement a Machine Learning Model', difficulty: 'Hard' },
-        { id: 12, title: 'Build a RESTful API with Flask', difficulty: 'Medium' }
-      ],
-      team: [
-        { id: 13, title: 'Build a Social Media Dashboard', difficulty: 'Hard' },
-        { id: 14, title: 'Create a Multiplayer Game', difficulty: 'Expert' },
-        { id: 15, title: 'Develop a Collaborative Code Editor', difficulty: 'Expert' }
-      ],
-      daily: [
-        { id: 16, title: 'Implement a List Comprehension', difficulty: 'Easy' },
-        { id: 17, title: 'Create a Function to Process CSV Data', difficulty: 'Easy' },
-        { id: 18, title: 'Build a Simple Neural Network', difficulty: 'Hard' }
-      ]
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch all questions from the database
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/questions"); // Adjust API URL as needed
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch questions");
+        }
+
+        const data = await response.json();
+        setQuestions(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
+
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty.toLowerCase()) {
+      case "easy":
+        return { bg: "#d1fae5", text: "#047857" };
+      case "medium":
+        return { bg: "#e0e7ff", text: "#4338ca" };
+      case "hard":
+        return { bg: "#fef3c7", text: "#d97706" };
+      case "expert":
+        return { bg: "#fee2e2", text: "#dc2626" };
+      default:
+        return { bg: "#e0e7ff", text: "#4338ca" };
     }
   };
-  
-  const questions = mockQuestions[languageId]?.[typeId] || [];
 
-  const handleStartChallenge = (questionId) => {
-    navigate(`/question/${languageId}/${typeId}/${questionId}`);
-  };
+  if (loading) return <p>Loading questions...</p>;
+  if (error) return <p>Error: {error}</p>;
 
   return (
-    <div className="questions-container">
-      <nav className="questions-nav">
-        <button onClick={() => navigate('/languages')} className="back-button">
-          ← Back to Languages
-        </button>
-        <h1>{questionTypes[typeId]} - {languages[languageId]}</h1>
-      </nav>
+    <div
+      style={{
+        padding: "40px",
+        maxWidth: "800px",
+        margin: "50px auto",
+        backgroundColor: "white",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h1 style={{ color: "#4a54eb", textAlign: "center" }}>Available Questions</h1>
       
-      <div className="questions-content">
-        <div className="questions-header">
-          <p>Select a question to begin:</p>
-        </div>
-        
-        <div className="questions-list">
-          {questions.map(question => (
-            <div key={question.id} className="question-item">
-              <div className="question-info">
-                <h3>{question.title}</h3>
-                <span className={`difficulty ${question.difficulty.toLowerCase()}`}>
-                  {question.difficulty}
-                </span>
-              </div>
-              <button 
-                className="start-button"
-                onClick={() => handleStartChallenge(question.id)}
+      <p style={{ marginBottom: "20px", color: "#666", textAlign: "center" }}>
+        Select a question to begin:
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+        {questions.length > 0 ? (
+          questions.map((question) => {
+            const difficultyStyle = getDifficultyColor(question.difficulty);
+
+            return (
+              <div
+                key={question._id}
+                style={{
+                  padding: "20px",
+                  backgroundColor: "#f8f9fa",
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  transition: "transform 0.2s, box-shadow 0.2s",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+                }}
               >
-                Start Challenge
-              </button>
-            </div>
-          ))}
-        </div>
+                <div>
+                  <h3 style={{ margin: 0, marginBottom: "5px" }}>{question.title}</h3>
+                  <p style={{ margin: 0, color: "#555" }}>Points: {question.points}</p>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "3px 10px",
+                      borderRadius: "15px",
+                      fontSize: "12px",
+                      backgroundColor: difficultyStyle.bg,
+                      color: difficultyStyle.text,
+                    }}
+                  >
+                    {question.difficulty}
+                  </span>
+                </div>
+                <Link
+                  to={`/question/${question._id}`}
+                  style={{
+                    backgroundColor: "#4a54eb",
+                    color: "white",
+                    textDecoration: "none",
+                    padding: "8px 16px",
+                    borderRadius: "5px",
+                    fontWeight: "bold",
+                    fontSize: "14px",
+                  }}
+                >
+                  Solve Challenge
+                </Link>
+              </div>
+            );
+          })
+        ) : (
+          <p style={{ textAlign: "center", color: "#999" }}>No questions available.</p>
+        )}
       </div>
     </div>
   );
 };
 
-export default Questions; 
+export default Questions;
