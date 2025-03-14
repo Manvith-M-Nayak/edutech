@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import './AdminDashboard.css';
 
 const AdminDashboard = () => {
     const [questions, setQuestions] = useState([]);
     const [newQuestion, setNewQuestion] = useState({
-        title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1
+        title: '', description: '', difficulty: '', category: '',
+        exampleInput1: '', exampleInput2: '', exampleOutput1: '', exampleOutput2: '',
+        hiddenInput1: '', hiddenInput2: '', hiddenInput3: '',
+        hiddenOutput1: '', hiddenOutput2: '', hiddenOutput3: '',
+        points: 1
     });
-    const [editingQuestionId, setEditingQuestionId] = useState(null); // ✅ Track the question being edited
+    const [editingQuestionId, setEditingQuestionId] = useState(null);
 
-    const token = localStorage.getItem('authToken'); // ✅ Get authentication token
+    const token = localStorage.getItem('authToken');
 
-    // Function to fetch all questions
     const fetchQuestions = () => {
         if (!token) {
             console.error("No token found. Please log in.");
@@ -20,12 +24,11 @@ const AdminDashboard = () => {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // ✅ Send token
+                'Authorization': `Bearer ${token}`
             }
         })
         .then(res => res.json())
         .then(data => {
-            console.log("API Response:", data); // ✅ Debugging Step
             if (Array.isArray(data)) {
                 setQuestions(data);
             } else {
@@ -35,67 +38,65 @@ const AdminDashboard = () => {
         .catch(err => console.error('Error fetching questions:', err));
     };
 
-    // Fetch questions when component loads
     useEffect(() => {
         fetchQuestions();
     });
 
-    // Handle input changes
     const handleChange = (e) => {
         setNewQuestion({ ...newQuestion, [e.target.name]: e.target.value });
     };
 
-    // Handle form submission to add or update a question
     const handleSubmit = (e) => {
         e.preventDefault();
-
         if (!token) {
             alert("No authentication token found. Please log in again.");
             return;
         }
 
         const url = editingQuestionId 
-            ? `http://localhost:5000/admin/questions/${editingQuestionId}`  // ✅ Update endpoint for editing
-            : 'http://localhost:5000/admin/questions';  // ✅ Add endpoint
+            ? `http://localhost:5000/admin/questions/${editingQuestionId}`
+            : 'http://localhost:5000/admin/questions';
 
-        const method = editingQuestionId ? 'PUT' : 'POST'; // ✅ Use PUT if editing
+        const method = editingQuestionId ? 'PUT' : 'POST';
 
         fetch(url, {
             method: method,
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // ✅ Ensure admin authentication
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(newQuestion)
         })
         .then(res => res.json())
         .then(data => {
-            console.log("Response:", data); // ✅ Debugging
-            if (data.message.includes("successfully")) {
-                alert(data.message);
-                setNewQuestion({ title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1 });
-                setEditingQuestionId(null); // ✅ Reset edit mode
-                fetchQuestions(); // ✅ Refresh list
-            } else {
-                alert("Failed: " + data.message);
-            }
+            alert(data.message);
+            setNewQuestion({ title: '', description: '', difficulty: '', category: '',
+                exampleInput1: '', exampleInput2: '', exampleOutput1: '', exampleOutput2: '',
+                hiddenInput1: '', hiddenInput2: '', hiddenInput3: '',
+                hiddenOutput1: '', hiddenOutput2: '', hiddenOutput3: '',
+                points: 1
+            });
+            setEditingQuestionId(null);
+            fetchQuestions();
         })
         .catch(err => console.error('Error:', err));
     };
 
-    // Handle edit button click
     const handleEdit = (question) => {
         setNewQuestion(question);
         setEditingQuestionId(question._id);
     };
 
-    // Handle cancel edit
     const handleCancelEdit = () => {
-        setNewQuestion({ title: '', description: '', difficulty: '', category: '', exampleInput: '', exampleOutput: '', points: 1 });
+        setNewQuestion({ title: '', description: '', difficulty: '', category: '',
+            exampleInput1: '', exampleInput2: '', exampleOutput1: '', exampleOutput2: '',
+            hiddenInput1: '', hiddenInput2: '', hiddenInput3: '',
+            hiddenOutput1: '', hiddenOutput2: '', hiddenOutput3: '',
+            points: 1
+        });
         setEditingQuestionId(null);
     };
 
-    // ✅ Delete a question
     const handleDelete = (id) => {
         if (!window.confirm("Are you sure you want to delete this question?")) {
             return;
@@ -105,14 +106,13 @@ const AdminDashboard = () => {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // ✅ Ensure admin authentication
+                'Authorization': `Bearer ${token}`
             }
         })
         .then(res => res.json())
         .then(data => {
-            console.log("Delete Response:", data);
             alert(data.message);
-            fetchQuestions(); // ✅ Refresh list after deletion
+            fetchQuestions();
         })
         .catch(err => console.error('Error deleting question:', err));
     };
@@ -130,26 +130,28 @@ const AdminDashboard = () => {
                     <option value="Hard">Hard</option>
                 </select>
                 <input name="category" placeholder="Category" value={newQuestion.category} onChange={handleChange} required />
-                <textarea name="exampleInput" placeholder="Example Input" value={newQuestion.exampleInput} onChange={handleChange} required />
-                <textarea name="exampleOutput" placeholder="Example Output" value={newQuestion.exampleOutput} onChange={handleChange} required />
-                <input name="points" placeholder='points' value={newQuestion.points} onChange={handleChange} required />
+                <input name="exampleInput1" placeholder="Example Input 1" value={newQuestion.exampleInput1} onChange={handleChange} required />
+                <input name="exampleOutput1" placeholder="Example Output 1" value={newQuestion.exampleOutput1} onChange={handleChange} required />
+                <input name="exampleInput2" placeholder="Example Input 2" value={newQuestion.exampleInput2} onChange={handleChange} required />
+                <input name="exampleOutput2" placeholder="Example Output 2" value={newQuestion.exampleOutput2} onChange={handleChange} required />
+                <input name="hiddenInput1" placeholder="Hidden Input 1" value={newQuestion.hiddenInput1} onChange={handleChange} required />
+                <input name="hiddenOutput1" placeholder="Hidden Output 1" value={newQuestion.hiddenOutput1} onChange={handleChange} required />
+                <input name="hiddenInput2" placeholder="Hidden Input 2" value={newQuestion.hiddenInput2} onChange={handleChange} required />
+                <input name="hiddenOutput2" placeholder="Hidden Output 2" value={newQuestion.hiddenOutput2} onChange={handleChange} required />
+                <input name="hiddenInput3" placeholder="Hidden Input 3" value={newQuestion.hiddenInput3} onChange={handleChange} required />
+                <input name="hiddenOutput3" placeholder="Hidden Output 3" value={newQuestion.hiddenOutput3} onChange={handleChange} required />
+                <input name="points" placeholder='Points' value={newQuestion.points} onChange={handleChange} required />
                 <button type="submit">{editingQuestionId ? "Update Question" : "Add Question"}</button>
                 {editingQuestionId && <button type="button" onClick={handleCancelEdit}>Cancel</button>}
             </form>
-
             <h3>Existing Questions</h3>
             <ul>
-                {questions.length > 0 ? (
-                    questions.map(q => (
-                        <li key={q._id}>
-                            {q.title} - {q.difficulty}
-                            <button onClick={() => handleEdit(q)}>Edit</button>
-                            <button onClick={() => handleDelete(q._id)}>Delete</button>
-                        </li>
-                    ))
-                ) : (
-                    <p>No questions available.</p>
-                )}
+                {questions.map(q => (
+                    <li key={q._id}>{q.title} - {q.difficulty}
+                        <button onClick={() => handleEdit(q)}>Edit</button>
+                        <button onClick={() => handleDelete(q._id)}>Delete</button>
+                    </li>
+                ))}
             </ul>
         </div>
     );

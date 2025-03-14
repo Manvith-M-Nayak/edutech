@@ -6,11 +6,12 @@ const { verifyAdmin } = require('../middleware/auth'); // ✅ Import Admin Middl
 // ✅ Add a new question (Admin only)
 router.post('/questions', verifyAdmin, async (req, res) => {
     try {
-        const { title, description, difficulty, category, exampleInput, exampleOutput } = req.body;
+        const { title, description, difficulty, category, exampleInput1, exampleInput2, exampleOutput1, exampleOutput2,
+            hiddenInput1, hiddenInput2, hiddenInput3, hiddenOutput1, hiddenOutput2, hiddenOutput3, points } = req.body;
 
         // ✅ Validate required fields
-        if (!title || !description || !difficulty || !category || !exampleInput || !exampleOutput) {
-            return res.status(400).json({ message: "All fields are required" });
+        if (!title || !description || !difficulty || !category || !exampleInput1 || !exampleOutput1 || !hiddenInput1 || !hiddenOutput1 || !points) {
+            return res.status(400).json({ message: "All required fields must be filled" });
         }
 
         // ✅ Check if the title already exists

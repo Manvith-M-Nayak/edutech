@@ -162,10 +162,10 @@ function App() {
         <Route path="/home" element={<Home/>} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/languages" element={<LanguageSelection />} />
         <Route path="/assistance" element={<TeacherAssistance />} />
         <Route path="/questions" element={<Questions />} />
-        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/question/:id" element={<QuestionDetails />} />
       </Routes>
     </BrowserRouter>

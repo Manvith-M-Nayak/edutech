@@ -66,10 +66,10 @@ const QuestionDetails = () => {
         </select>
       </div>
 
-      <div className="question-example">
+      {/* <div className="question-example">
         <p><strong>Example Input:</strong> {question.exampleInput}</p>
         <p><strong>Example Output:</strong> {question.exampleOutput}</p>
-      </div>
+      </div> */}
 
       <textarea
         className="solution-input"
