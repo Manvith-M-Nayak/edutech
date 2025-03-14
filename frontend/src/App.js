@@ -167,7 +167,7 @@ function App() {
         <Route path="/assistance" element={<TeacherAssistance />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/question/:id" element={<QuestionDetails />} />
-      </Routes>
+      </Routes> 
     </BrowserRouter>
   );
 }
