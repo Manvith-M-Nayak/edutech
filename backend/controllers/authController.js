@@ -3,87 +3,94 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 require("dotenv").config();
 
-// User registration function
+// ✅ Register a new user
 const register = async (req, res) => {
     const { username, email, password } = req.body;
 
-    // Validate input fields
     if (!username || !email || !password) {
-        return res.status(400).json({ error: "All fields are required" });
+        return res.status(400).json({ error: "All fields are required." });
     }
 
     try {
-        // Check if email is already registered
+        // ✅ Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ error: "User already exists" });
+            return res.status(400).json({ error: "User already exists." });
         }
 
-        // Hash password before storing in database
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        // ✅ Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create and save new user (default isAdmin to false)
+        // ✅ Create new user (Default: Not a teacher/admin)
         const newUser = new User({
             username,
             email,
             password: hashedPassword,
-            isAdmin: false // ✅ Ensure new users are not admins by default
+            isAdmin: false,
+            isTeacher: false
         });
 
         await newUser.save();
 
-        res.status(201).json({ message: "User registered successfully" });
+        res.status(201).json({ message: "User registered successfully." });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Server error, please try again later" });
+        console.error("❌ Registration Error:", error);
+        res.status(500).json({ error: "Server error. Please try again later." });
     }
 };
 
-// User login function
+// ✅ Login User
 const login = async (req, res) => {
     const { email, password } = req.body;
 
-    // Validate input fields 
     if (!email || !password) {
-        return res.status(400).json({ error: "All fields are required" });
+        return res.status(400).json({ error: "All fields are required." });
     }
 
     try {
-        // Check if user exists
+        // ✅ Check if user exists
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ error: "Invalid credentials" });
+            return res.status(400).json({ error: "Invalid credentials." });
         }
 
-        // Compare passwords
+        // ✅ Compare passwords
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ error: "Invalid credentials" });
+            return res.status(400).json({ error: "Invalid credentials." });
         }
 
-        // Generate JWT Token (Include isAdmin)
+        // ✅ Fetch latest user data (excluding password)
+        const updatedUser = await User.findById(user._id).select("-password");
+
+        // ✅ Generate JWT Token (Expire in 24 hours)
         const token = jwt.sign(
-            { id: user._id, username: user.username, email: user.email, isAdmin: user.isAdmin }, 
+            { 
+                id: updatedUser._id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                isAdmin: updatedUser.isAdmin, 
+                isTeacher: updatedUser.isTeacher 
+            }, 
             process.env.JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "24h" } // ✅ Extend session to 24 hours
         );
 
-        // ✅ Include isAdmin in the response
         res.json({ 
             token, 
             user: { 
-                id: user._id, 
-                username: user.username, 
-                email: user.email, 
-                isAdmin: user.isAdmin // ✅ Make sure frontend gets isAdmin
+                id: updatedUser._id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                isAdmin: updatedUser.isAdmin, 
+                isTeacher: updatedUser.isTeacher 
             } 
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Server error, please try again later" });
+        console.error("❌ Login Error:", error);
+        res.status(500).json({ error: "Server error. Please try again later." });
     }
 };
 

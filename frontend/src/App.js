@@ -8,6 +8,7 @@ import Home from "./components/Home";
 import LanguageSelection from './components/LanguageSection';
 import Questions from './components/Questions';
 import QuestionDetails from './components/QuestionDetails';
+import TeacherChat from "./components/TeacherChat";
 // Language Selection component
 // const LanguageSelection = () => {
 //   const navigate = useNavigate();
@@ -167,6 +168,7 @@ function App() {
         <Route path="/assistance" element={<TeacherAssistance />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/question/:id" element={<QuestionDetails />} />
+        <Route path="/chat" element={<TeacherChat />} />
       </Routes> 
     </BrowserRouter>
   );

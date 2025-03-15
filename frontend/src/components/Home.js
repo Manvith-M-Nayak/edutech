@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 
 const Home = () => {
   const [leaderboard, setLeaderboard] = useState([]);
+  const [isTeacher, setIsTeacher] = useState(false);
   const user = JSON.parse(localStorage.getItem('user')) || {};
 
+  // ✅ Fetch leaderboard data
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
@@ -18,6 +20,13 @@ const Home = () => {
     fetchLeaderboard();
   }, []);
 
+  // ✅ Check if user is a teacher
+  useEffect(() => {
+    if (user?.isTeacher) {
+      setIsTeacher(true);
+    }
+  }, [user]);
+
   return (
     <div style={containerStyle}>
       <div style={contentStyle}>
@@ -26,24 +35,31 @@ const Home = () => {
           Welcome to the educational technology platform!
         </p>
         <div style={gridContainerStyle}>
-          {['Profile', 'Programming', 'Teacher Help'].map((section, index) => (
+          {['Profile', 'Programming'].map((section, index) => (
             <div key={index} style={sectionCardStyle}>
               <span style={iconStyle}>{
-                section === 'Profile' ? '👤' : section === 'Programming' ? '💻' : '🧑‍🏫'
+                section === 'Profile' ? '👤' : '💻'
               }</span>
               <h3 style={headingStyle}>{section}</h3>
               <p style={textStyle}>
                 {section === 'Profile' ? 'View your achievements and progress' :
-                 section === 'Programming' ? 'Choose a programming language' :
-                 'Get assistance from teachers'}
+                 'Choose a programming language'}
               </p>
-              <Link to={
-                section === 'Profile' ? '/profile' :
-                section === 'Programming' ? '/languages' : '/assistance'
-              } style={buttonStyle}>Go</Link>
+              <Link to={section === 'Profile' ? '/profile' : '/languages'} style={buttonStyle}>Go</Link>
             </div>
           ))}
 
+          {/* ✅ Dynamic Help Button for Teacher & Student */}
+          <div style={sectionCardStyle}>
+            <span style={iconStyle}>🧑‍🏫</span>
+            <h3 style={headingStyle}>{isTeacher ? "Student Queries" : "Teacher Help"}</h3>
+            <p style={textStyle}>
+              {isTeacher ? "Answer student queries" : "Get assistance from teachers"}
+            </p>
+            <Link to="/chat" style={buttonStyle}>Go</Link>
+          </div>
+
+          {/* ✅ Show Admin Panel Only for Admin Users */}
           {user?.isAdmin && (
             <div style={{ ...sectionCardStyle, backgroundColor: '#ffe0b2' }}>
               <span style={iconStyle}>⚙️</span>
@@ -55,6 +71,7 @@ const Home = () => {
         </div>
       </div>
 
+      {/* ✅ Leaderboard Section */}
       <div style={leaderboardStyle}>
         <h2 style={titleStyle}>Leaderboard</h2>
         <ul style={listStyle}>
@@ -70,6 +87,7 @@ const Home = () => {
   );
 };
 
+// ✅ Styles
 const containerStyle = {
   display: 'flex',
   justifyContent: 'space-between',

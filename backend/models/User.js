@@ -43,6 +43,10 @@ const UserSchema = new mongoose.Schema(
         isAdmin: {
             type: Boolean,
             default: false
+        },
+        isTeacher: {
+            type: Boolean,
+            default: false // ✅ By default, users are students; can be updated in MongoDB
         }
     },
     { timestamps: true }

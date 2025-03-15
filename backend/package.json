@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "axios": "^1.8.3",
-    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "child_process": "^1.0.2",
@@ -25,7 +24,7 @@
     "validator": "^13.9.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.1.9"
   },
   "keywords": [],
   "author": "",
