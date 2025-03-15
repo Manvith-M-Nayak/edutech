@@ -44,7 +44,7 @@ if (!process.env.MONGO_URI) {
 app.use('/api/auth', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/users', leaderboardRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/compiler', compilerRoutes);
 app.use('/api/chat', chatRoutes);

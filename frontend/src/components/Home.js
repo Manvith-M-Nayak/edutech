@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 const Home = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [isTeacher, setIsTeacher] = useState(false);
-  const user = JSON.parse(localStorage.getItem('user')) || {};
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // ✅ Memoizing user to prevent unnecessary re-renders
+  const user = useMemo(() => {
+    return JSON.parse(localStorage.getItem('user')) || {};
+  }, []);
 
   // ✅ Fetch leaderboard data
   useEffect(() => {
@@ -12,7 +17,10 @@ const Home = () => {
       try {
         const response = await fetch('http://localhost:5000/api/users/leaderboard');
         const data = await response.json();
-        setLeaderboard(data);
+        
+        // ✅ Filter out teachers and admins
+        const filteredLeaderboard = data.filter(u => !u.isTeacher && !u.isAdmin);
+        setLeaderboard(filteredLeaderboard);
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       }
@@ -20,30 +28,24 @@ const Home = () => {
     fetchLeaderboard();
   }, []);
 
-  // ✅ Check if user is a teacher
+  // ✅ Check if user is a teacher or admin
   useEffect(() => {
-    if (user?.isTeacher) {
-      setIsTeacher(true);
-    }
+    if (user?.isTeacher) setIsTeacher(true);
+    if (user?.isAdmin) setIsAdmin(true);
   }, [user]);
 
   return (
     <div style={containerStyle}>
       <div style={contentStyle}>
         <h1 style={titleStyle}>EduTech Platform</h1>
-        <p style={descriptionStyle}>
-          Welcome to the educational technology platform!
-        </p>
+        <p style={descriptionStyle}>Welcome to the educational technology platform!</p>
         <div style={gridContainerStyle}>
           {['Profile', 'Programming'].map((section, index) => (
             <div key={index} style={sectionCardStyle}>
-              <span style={iconStyle}>{
-                section === 'Profile' ? '👤' : '💻'
-              }</span>
+              <span style={iconStyle}>{section === 'Profile' ? '👤' : '💻'}</span>
               <h3 style={headingStyle}>{section}</h3>
               <p style={textStyle}>
-                {section === 'Profile' ? 'View your achievements and progress' :
-                 'Choose a programming language'}
+                {section === 'Profile' ? 'View your achievements and progress' : 'Choose a programming language'}
               </p>
               <Link to={section === 'Profile' ? '/profile' : '/languages'} style={buttonStyle}>Go</Link>
             </div>
@@ -53,14 +55,12 @@ const Home = () => {
           <div style={sectionCardStyle}>
             <span style={iconStyle}>🧑‍🏫</span>
             <h3 style={headingStyle}>{isTeacher ? "Student Queries" : "Teacher Help"}</h3>
-            <p style={textStyle}>
-              {isTeacher ? "Answer student queries" : "Get assistance from teachers"}
-            </p>
+            <p style={textStyle}>{isTeacher ? "Answer student queries" : "Get assistance from teachers"}</p>
             <Link to="/chat" style={buttonStyle}>Go</Link>
           </div>
 
           {/* ✅ Show Admin Panel Only for Admin Users */}
-          {user?.isAdmin && (
+          {isAdmin && (
             <div style={{ ...sectionCardStyle, backgroundColor: '#ffe0b2' }}>
               <span style={iconStyle}>⚙️</span>
               <h3 style={headingStyle}>Admin Panel</h3>

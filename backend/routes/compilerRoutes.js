@@ -1,6 +1,8 @@
 const express = require("express");
 const fs = require("fs");
 const { spawn } = require("child_process");
+const User = require("../models/User");
+const Question = require("../models/Question");
 
 const router = express.Router();
 
@@ -107,9 +109,9 @@ router.post("/run", async (req, res) => {
 
 router.post("/submit", async (req, res) => {
     try {
-        const { code, language, exampleInputs, expectedExampleOutputs, hiddenInputs, expectedHiddenOutputs } = req.body;
+        const { userId, questionId, code, language, exampleInputs, expectedExampleOutputs, hiddenInputs, expectedHiddenOutputs } = req.body;
 
-        if (!code || !language || !Array.isArray(exampleInputs) || !Array.isArray(expectedExampleOutputs) ||
+        if (!userId || !questionId || !code || !language || !Array.isArray(exampleInputs) || !Array.isArray(expectedExampleOutputs) ||
             !Array.isArray(hiddenInputs) || !Array.isArray(expectedHiddenOutputs)) {
             return res.status(400).json({
                 output: "Missing required parameters. Ensure all inputs and expected outputs are provided.",
@@ -142,11 +144,27 @@ router.post("/submit", async (req, res) => {
 
         const submissionPassed = exampleResults.every(test => test.passed) && hiddenResults;
 
+        if (submissionPassed) {
+            const question = await Question.findById(questionId);
+            if (!question) {
+                return res.status(404).json({ message: "Question not found" });
+            }
+
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            user.totalPoints += question.points;
+            user.solvedQuestions = user.solvedQuestions.filter(qId => qId.toString() !== questionId);
+            await user.save();
+        }
+
         return res.json({
             success: submissionPassed,
             exampleResults,
             hiddenResults,
-            message: submissionPassed ? "✅ All test cases passed!" : "❌ Hidden test cases failed. Please retry.",
+            message: submissionPassed ? "✅ All test cases passed! Points awarded and question removed." : "❌ Hidden test cases failed. Please retry.",
         });
     } catch (error) {
         console.error("Execution Error:", error);

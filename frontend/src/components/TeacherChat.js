@@ -17,40 +17,48 @@ const TeacherChat = () => {
             return;
         }
 
-        fetch("http://localhost:5000/api/users", {
-            headers: { "Authorization": `Bearer ${token}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log("📋 Fetched Users:", data); // ✅ Debugging log
-            if (!Array.isArray(data)) {
-                console.error("❌ Unexpected response format:", data);
-                return;
+        const fetchUsers = async () => {
+            try {
+                const res = await fetch("http://localhost:5000/api/users", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!Array.isArray(data)) {
+                    console.error("❌ Unexpected response format:", data);
+                    return;
+                }
+                const filteredUsers = data.filter(u => (isTeacher ? !u.isTeacher : u.isTeacher));
+                setUsers(filteredUsers);
+            } catch (err) {
+                console.error("❌ Error fetching users:", err);
             }
-            const filteredUsers = data.filter(u => (isTeacher ? !u.isTeacher : u.isTeacher));
-            setUsers(filteredUsers);
-        })
-        .catch(err => console.error("❌ Error fetching users:", err));
-    }, []);
+        };
+
+        fetchUsers();
+    }, [token, isTeacher]);
 
     // ✅ Fetch messages when a receiver is selected
     useEffect(() => {
         if (!receiverId) return;
 
-        fetch(`http://localhost:5000/api/chat/${receiverId}`, {
-            headers: { "Authorization": `Bearer ${token}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log("📩 Fetched Messages:", data); // ✅ Debugging log
-            if (!data.success) {
-                console.error("❌ Error fetching messages:", data.message);
-                return;
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`http://localhost:5000/api/chat/${receiverId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    console.error("❌ Error fetching messages:", data.message);
+                    return;
+                }
+                setMessages(Array.isArray(data.messages) ? data.messages : []);
+            } catch (err) {
+                console.error("❌ Error fetching messages:", err);
             }
-            setMessages(Array.isArray(data.messages) ? data.messages : []);
-        })
-        .catch(err => console.error("❌ Error fetching messages:", err));
-    }, [receiverId]);
+        };
+
+        fetchMessages();
+    }, [receiverId, token]);
 
     // ✅ Handle sending messages
     const sendMessage = async (e) => {
@@ -60,8 +68,6 @@ const TeacherChat = () => {
             alert("Please select a recipient and enter a message.");
             return;
         }
-
-        console.log("📤 Sending Message To:", receiverId, "Message:", newMessage);
 
         try {
             const response = await fetch("http://localhost:5000/api/chat", {
@@ -74,8 +80,6 @@ const TeacherChat = () => {
             });
 
             const data = await response.json();
-            console.log("✅ Message Sent Response:", data);
-
             if (!data.success) {
                 console.error("❌ Error sending message:", data.message);
                 alert(`Error: ${data.message}`);
@@ -126,4 +130,3 @@ const TeacherChat = () => {
 };
 
 export default TeacherChat;
-    

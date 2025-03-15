@@ -8,27 +8,28 @@ const { verifyToken } = require("../middleware/auth"); // ✅ Protect routes
 router.get("/:receiverId", verifyToken, async (req, res) => {
     try {
         const { receiverId } = req.params;
+        const senderId = req.user.id;
 
-        if (!req.user || !req.user._id) {
-            console.error("❌ Unauthorized access: Invalid token.");
+        if (!senderId) {
             return res.status(401).json({ success: false, message: "Unauthorized. Invalid token." });
         }
 
-        console.log(`📩 Fetching messages between ${req.user._id} and ${receiverId}`);
+        console.log(`📩 Fetching messages between ${senderId} and ${receiverId}`);
 
         const messages = await Message.find({
             $or: [
-                { sender: req.user._id, receiver: receiverId },
-                { sender: receiverId, receiver: req.user._id }
+                { sender: senderId, receiver: receiverId },
+                { sender: receiverId, receiver: senderId }
             ]
-        }).sort({ createdAt: 1 });
+        })
+        .sort({ createdAt: 1 })
+        .populate("sender", "username")
+        .populate("receiver", "username");
 
-        console.log("✅ Messages Found:", messages.length);
-
-        res.json({ success: true, messages: messages || [] }); // ✅ Always return an array
+        res.json({ success: true, messages });
     } catch (error) {
         console.error("❌ Error fetching messages:", error);
-        res.status(500).json({ success: false, message: "Internal server error", error });
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
 
@@ -36,9 +37,10 @@ router.get("/:receiverId", verifyToken, async (req, res) => {
 router.post("/", verifyToken, async (req, res) => {
     try {
         const { receiverId, message } = req.body;
+        const senderId = req.user.id;
+        const senderName = req.user.username;
 
-        if (!req.user || !req.user._id) {
-            console.error("❌ Unauthorized message attempt.");
+        if (!senderId) {
             return res.status(401).json({ success: false, message: "Unauthorized. Invalid token." });
         }
 
@@ -52,8 +54,8 @@ router.post("/", verifyToken, async (req, res) => {
         }
 
         const newMessage = new Message({
-            sender: req.user._id, // ✅ Ensure correct sender ID
-            senderName: req.user.username,
+            sender: senderId,
+            senderName,
             receiver: receiverId,
             receiverName: receiver.username,
             message
@@ -61,12 +63,10 @@ router.post("/", verifyToken, async (req, res) => {
 
         await newMessage.save();
 
-        console.log("📤 Message Sent:", newMessage);
-
         res.status(201).json({ success: true, message: "Message sent successfully", newMessage });
     } catch (error) {
         console.error("❌ Error sending message:", error);
-        res.status(500).json({ success: false, message: "Internal server error", error });
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
 

@@ -5,9 +5,13 @@ const User = require('../models/User'); // Import the User model
 // GET Leaderboard Data (sorted by points in descending order)
 router.get('/leaderboard', async (req, res) => {
   try {
-    const leaderboard = await User.find({}, 'username totalPoints')
-      .sort({ totalPoints: -1 })
-      .limit(10);
+    // Fetch only users who are NOT teachers and NOT admins
+    const leaderboard = await User.find(
+      { isTeacher: false, isAdmin: false }, // Filtering criteria
+      'username totalPoints'
+    )
+      .sort({ totalPoints: -1 }) // Sort in descending order
+      .limit(10); // Limit to top 10 users
 
     res.status(200).json(leaderboard);
   } catch (error) {
