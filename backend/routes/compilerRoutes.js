@@ -123,16 +123,16 @@ router.post("/run", async (req, res) => {
 router.post("/submit", async (req, res) => {
     try {
         const { userId, questionId, code, language } = req.body;
-
+        
         if (!userId || !questionId || !code || !language) {
             return res.status(400).json({ output: "Missing required parameters.", error: true });
         }
-
+        
         const question = await Question.findById(questionId);
         if (!question) {
             return res.status(404).json({ message: "Question not found" });
         }
-
+        
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -143,22 +143,22 @@ router.post("/submit", async (req, res) => {
         const expectedExampleOutputs = [question.exampleOutput1, question.exampleOutput2];
         const hiddenInputs = [question.hiddenInput1, question.hiddenInput2, question.hiddenInput3];
         const expectedHiddenOutputs = [question.hiddenOutput1, question.hiddenOutput2, question.hiddenOutput3];
-
+        
         let exampleResults = [];
         let hiddenResults = true;
-
+        
         // Run example test cases
         for (let i = 0; i < exampleInputs.length; i++) {
             const result = await executeCode(code, language, exampleInputs[i]);
             const passed = result.output.trim() === expectedExampleOutputs[i].trim();
-            exampleResults.push({ 
-                input: exampleInputs[i], 
-                output: result.output, 
-                expected: expectedExampleOutputs[i], 
-                passed 
+            exampleResults.push({
+                input: exampleInputs[i],
+                output: result.output,
+                expected: expectedExampleOutputs[i],
+                passed
             });
         }
-
+        
         // Run hidden test cases
         for (let i = 0; i < hiddenInputs.length; i++) {
             const result = await executeCode(code, language, hiddenInputs[i]);
@@ -169,10 +169,26 @@ router.post("/submit", async (req, res) => {
         }
         
         const submissionPassed = exampleResults.every(test => test.passed) && hiddenResults;
-
+        
+        // Create a new submission entry
+        const newSubmission = {
+            questionId: questionId,
+            submission: code,
+            points: submissionPassed ? question.points : 0,
+            submittedAt: new Date()
+        };
+        
+        // Add the submission to the user's questionSubmissions array
+        user.questionSubmissions.push(newSubmission);
+        
         if (submissionPassed) {
-            // Update user progress directly without using fetch
-            user.totalPoints += question.points;
+            // Update user progress
+            
+            // Only add points if this is the first time the user is passing this question
+            const alreadyCompleted = user.completedQuestions.includes(questionId);
+            if (!alreadyCompleted) {
+                user.totalPoints += question.points;
+            }
             
             // Get today's date
             const today = new Date().toISOString().split("T")[0];
@@ -184,27 +200,27 @@ router.post("/submit", async (req, res) => {
             }
             
             // Add the question to completed questions if not already completed
-            if (!user.completedQuestions.includes(questionId)) {
+            if (!alreadyCompleted) {
                 user.completedQuestions.push(questionId);
             }
-            
-            // Save the user
-            await user.save();
         }
-
+        
+        // Save the user
+        await user.save();
+        
         return res.json({
             success: submissionPassed,
             passedAllTests: submissionPassed,
             exampleResults,
             hiddenResults,
             message: submissionPassed ? "✅ All test cases passed! Points awarded." : "❌ Some test cases failed.",
+            submissionId: user.questionSubmissions[user.questionSubmissions.length - 1]._id
         });
     } catch (error) {
         console.error("Execution Error:", error);
         return res.status(500).json({ output: "Internal Server Error", details: error.message });
     }
 });
-
 /**
  * Updates user progress when a coding problem is successfully solved.
  */
@@ -229,14 +245,38 @@ router.post("/update-user-progress", async (req, res) => {
         // Update total points
         user.totalPoints += points;
 
-        // Get today's date
-        const today = new Date().toISOString().split("T")[0];
-
         // Update streak if applicable
-        if (increaseStreak && (!user.lastStreakDate || user.lastStreakDate !== today)) {
-            user.streaks += 1;
-            user.totalPoints += 1;
-            user.lastStreakDate = today;
+        if (increaseStreak) {
+            // Get today's date at midnight (12 AM)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (!user.lastStreakDate) {
+                // First time earning streak
+                user.streaks = 1;
+                user.totalPoints += 1;
+            } else {
+                // Convert lastStreakDate string to Date object at midnight
+                const lastDate = new Date(user.lastStreakDate);
+                lastDate.setHours(0, 0, 0, 0);
+                
+                // Calculate days between last streak and today
+                const dayDifference = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+                
+                if (dayDifference === 0) {
+                    // Already logged in today - no streak change
+                } else if (dayDifference === 1) {
+                    // Consecutive day - increase streak
+                    user.streaks += 1;
+                    user.totalPoints += 1;
+                } else {
+                    // Missed streak (more than 1 day) - reset to 1
+                    user.streaks = 1;
+                }
+            }
+            
+            // Update the last streak date as today's date in ISO format
+            user.lastStreakDate = today.toISOString().split('T')[0];
         }
 
         // Add the question to completed questions

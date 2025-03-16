@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import './Home.css';
 
 const Home = () => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -35,104 +36,64 @@ const Home = () => {
   }, [user]);
 
   return (
-    <div style={containerStyle}>
-      <div style={contentStyle}>
-        <h1 style={titleStyle}>EduTech Platform</h1>
-        <p style={descriptionStyle}>Welcome to the educational technology platform!</p>
-        <div style={gridContainerStyle}>
-          {['Profile', 'Programming'].map((section, index) => (
-            <div key={index} style={sectionCardStyle}>
-              <span style={iconStyle}>{section === 'Profile' ? '👤' : '💻'}</span>
-              <h3 style={headingStyle}>{section}</h3>
-              <p style={textStyle}>
-                {section === 'Profile' ? 'View your achievements and progress' : 'Choose a programming language'}
-              </p>
-              <Link to={section === 'Profile' ? '/profile' : '/languages'} style={buttonStyle}>Go</Link>
-            </div>
-          ))}
+    <div className="home-container">
+      <div className="content-area">
+        <h1 className="main-title">EduTech Platform</h1>
+        <p className="main-description">Welcome to the educational technology platform!</p>
+        
+        <div className="grid-container">
+          <div className="section-card">
+            <span className="card-icon">👤</span>
+            <h3 className="card-heading">Profile</h3>
+            <p className="card-text">View your achievements and progress</p>
+            <Link to="/profile" className="card-button">Go</Link>
+          </div>
+          
+          <div className="section-card">
+            <span className="card-icon">💻</span>
+            <h3 className="card-heading">Programming</h3>
+            <p className="card-text">Choose a programming language</p>
+            <Link to="/languages" className="card-button">Go</Link>
+          </div>
 
           {/* ✅ Dynamic Help Button for Teacher & Student */}
-          <div style={sectionCardStyle}>
-            <span style={iconStyle}>🧑‍🏫</span>
-            <h3 style={headingStyle}>{isTeacher ? "Student Queries" : "Teacher Help"}</h3>
-            <p style={textStyle}>{isTeacher ? "Answer student queries" : "Get assistance from teachers"}</p>
-            <Link to="/chat" style={buttonStyle}>Go</Link>
+          <div className="section-card">
+            <span className="card-icon">🧑‍🏫</span>
+            <h3 className="card-heading">{isTeacher ? "Student Queries" : "Teacher Help"}</h3>
+            <p className="card-text">{isTeacher ? "Answer student queries" : "Get assistance from teachers"}</p>
+            <Link to="/chat" className="card-button">Go</Link>
           </div>
 
           {/* ✅ Show Admin Panel Only for Admin Users */}
           {isAdmin && (
-            <div style={{ ...sectionCardStyle, backgroundColor: '#ffe0b2' }}>
-              <span style={iconStyle}>⚙️</span>
-              <h3 style={headingStyle}>Admin Panel</h3>
-              <p style={textStyle}>Manage coding challenges</p>
-              <Link to="/admin" style={{ ...buttonStyle, backgroundColor: '#ff9800' }}>Go to Admin Panel</Link>
+            <div className="section-card admin-card">
+              <span className="card-icon">⚙️</span>
+              <h3 className="card-heading">Admin Panel</h3>
+              <p className="card-text">Manage coding challenges</p>
+              <Link to="/admin" className="card-button admin-button">Make questions</Link>
+              <Link to="/submittedquestions" className="card-button admin-button">View Submissions</Link>
             </div>
           )}
         </div>
       </div>
 
       {/* ✅ Leaderboard Section */}
-      <div style={leaderboardStyle}>
-        <h2 style={titleStyle}>Leaderboard</h2>
-        <ul style={listStyle}>
+      <div className="leaderboard">
+        <h2 className="leaderboard-title">Leaderboard</h2>
+        <ul className="leaderboard-list">
           {leaderboard.length > 0 ? leaderboard.map((user, index) => (
-            <li key={user.username} style={leaderboardItemStyle(index)}>
-              <span>#{user.totalPoints > 0 ? index + 1 : 'N/A'} - {user.username}</span>
-              <span>{user.totalPoints} pts</span>
+            <li key={user.username} className={`leaderboard-item ${index < 3 ? `top-${index + 1}` : ''}`}>
+              <span className="rank-name">
+                <span className="rank">#{user.totalPoints > 0 ? index + 1 : 'N/A'}</span>
+                <span className="username">{user.username}</span>
+              </span>
+              <span className="points">{user.totalPoints} pts</span>
             </li>
-          )) : <p>No leaderboard data available</p>}
+          )) : <p className="no-data">No leaderboard data available</p>}
         </ul>
       </div>
     </div>
   );
 };
-
-// ✅ Styles
-const containerStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  padding: '40px',
-  maxWidth: '1200px',
-  margin: '50px auto',
-  backgroundColor: 'white',
-  borderRadius: '12px',
-  boxShadow: '0 5px 20px rgba(0,0,0,0.1)',
-  gap: '30px'
-};
-
-const contentStyle = { flex: 2, paddingRight: '20px' };
-const titleStyle = { color: '#4a54eb', marginBottom: '20px', fontSize: '24px', fontWeight: 'bold' };
-const descriptionStyle = { fontSize: '18px', marginBottom: '30px', lineHeight: '1.6', color: '#333' };
-const gridContainerStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' };
-const iconStyle = { fontSize: '40px', marginBottom: '10px' };
-const headingStyle = { marginBottom: '10px', fontSize: '18px', fontWeight: '600' };
-const textStyle = { marginBottom: '15px', fontSize: '14px', color: '#666', textAlign: 'center' };
-const buttonStyle = { backgroundColor: '#4a54eb', color: 'white', padding: '10px 16px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', transition: 'background-color 0.3s', textAlign: 'center', display: 'inline-block' };
-const leaderboardStyle = { flex: 1, paddingLeft: '20px', borderLeft: '4px solid #ddd', backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '10px' };
-const listStyle = { listStyleType: 'none', padding: 0, width: '100%' };
-
-const sectionCardStyle = {
-  padding: '20px',
-  backgroundColor: '#f8f9fa',
-  borderRadius: '10px',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  textAlign: 'center',
-  transition: 'transform 0.3s ease'
-};
-
-const leaderboardItemStyle = (index) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '12px',
-  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f1f1f1',
-  borderRadius: '8px',
-  marginBottom: '6px',
-  fontWeight: '500',
-  border: '1px solid #ddd'
-});
 
 export default Home;

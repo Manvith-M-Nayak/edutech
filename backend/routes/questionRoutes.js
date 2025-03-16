@@ -3,6 +3,29 @@ const router = express.Router();
 const Question = require("../models/Question");
 const User = require("../models/User");
 
+// User routes
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find().select('-password');
+    res.json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post('/users', async (req, res) => {
+  try {
+    const newUser = new User(req.body);
+    const savedUser = await newUser.save();
+    res.status(201).json(savedUser);
+  } catch (err) {
+    console.error("Error creating user:", err);
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Question routes
 router.get("/questions", async (req, res) => {
   try {
     const { userId } = req.query;
@@ -31,7 +54,6 @@ router.get("/questions", async (req, res) => {
   }
 });
 
-
 // Get a single question by ID
 router.get("/questions/:id", async (req, res) => {
   try {
@@ -39,6 +61,7 @@ router.get("/questions/:id", async (req, res) => {
     if (!question) return res.status(404).json({ error: "Question not found" });
     res.json(question);
   } catch (err) {
+    console.error("Error fetching question:", err);
     res.status(500).json({ error: "Failed to fetch question" });
   }
 });

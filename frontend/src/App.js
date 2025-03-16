@@ -2,13 +2,15 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Link} from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register'; 
-import AdminDashboard from "./AdminDashboard";
+import AdminDashboard from "./components/AdminDashboard";
 import Profile from "./components/Profile";
 import Home from "./components/Home";
 import LanguageSelection from './components/LanguageSection';
 import Questions from './components/Questions';
 import QuestionDetails from './components/QuestionDetails';
 import TeacherChat from "./components/TeacherChat";
+import SubmittedQuestions from "./components/SubmittedQuestions";
+
 // Language Selection component
 // const LanguageSelection = () => {
 //   const navigate = useNavigate();
@@ -169,6 +171,7 @@ function App() {
         <Route path="/questions" element={<Questions />} />
         <Route path="/question/:id" element={<QuestionDetails />} />
         <Route path="/chat" element={<TeacherChat />} />
+        <Route path="/submittedquestions" element={<SubmittedQuestions />} />
       </Routes> 
     </BrowserRouter>
   );

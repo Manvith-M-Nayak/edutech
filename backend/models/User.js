@@ -57,6 +57,28 @@ const UserSchema = new mongoose.Schema(
           ref: "Question",
           default: [],
         },
+        questionSubmissions: {
+          type: [{
+            questionId: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "Question",
+              required: true
+            },
+            submission: {
+              type: String,
+              required: true
+            },
+            points: {
+              type: Number,
+              default: 0
+            },
+            submittedAt: {
+              type: Date,
+              default: Date.now
+            }
+          }],
+          default: []
+        }
     },
     { timestamps: true }
 );

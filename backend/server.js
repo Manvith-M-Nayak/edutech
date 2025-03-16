@@ -11,7 +11,7 @@ const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const compilerRoutes = require('./routes/compilerRoutes');
 const chatRoutes = require('./routes/chatRoutes');
-
+const submissions = require('./routes/submissions');
 const app = express();
 
 // ✅ Middleware
@@ -39,6 +39,7 @@ app.use('/api/users', leaderboardRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', compilerRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api', submissions);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
