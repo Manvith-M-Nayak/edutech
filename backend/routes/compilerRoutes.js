@@ -235,6 +235,7 @@ router.post("/update-user-progress", async (req, res) => {
         // Update streak if applicable
         if (increaseStreak && (!user.lastStreakDate || user.lastStreakDate !== today)) {
             user.streaks += 1;
+            user.totalPoints += 1;
             user.lastStreakDate = today;
         }
 
