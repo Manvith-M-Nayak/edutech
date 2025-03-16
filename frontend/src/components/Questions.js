@@ -5,12 +5,25 @@ const Questions = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userId, setUserId] = useState(null);
 
-  // Fetch all questions from the database
+  // Get user ID from local storage on component mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    if (parsedUser) setUserId(parsedUser.id);
+  }, []);
+
+  // Fetch questions that haven't been completed by the user
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/questions"); // Adjust API URL as needed
+        // Include userId as query parameter if available
+        const url = userId 
+          ? `http://localhost:5000/api/questions?userId=${userId}`
+          : "http://localhost:5000/api/questions";
+          
+        const response = await fetch(url);
 
         if (!response.ok) {
           throw new Error("Failed to fetch questions");
@@ -26,7 +39,7 @@ const Questions = () => {
     };
 
     fetchQuestions();
-  }, []);
+  }, [userId]); // Re-fetch when userId changes
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty.toLowerCase()) {
@@ -124,7 +137,9 @@ const Questions = () => {
             );
           })
         ) : (
-          <p style={{ textAlign: "center", color: "#999" }}>No questions available.</p>
+          <p style={{ textAlign: "center", color: "#999" }}>
+            {userId ? "You've completed all available questions!" : "No questions available."}
+          </p>
         )}
       </div>
     </div>

@@ -1,25 +1,36 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import "./QuestionDetails.css"; // Import CSS file
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 
 const QuestionDetails = () => {
-  const { id } = useParams();
+  const { id: questionId } = useParams();
   const [question, setQuestion] = useState(null);
+  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState("Python");
+  const [output, setOutput] = useState("");
+  const [exampleResults, setExampleResults] = useState([]);
+  const [submissionMessage, setSubmissionMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [solution, setSolution] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState("C"); // Default language
-  const [output, setOutput] = useState(""); // Stores output or errors
-  const [exampleResults, setExampleResults] = useState([]); // Stores example test case results
-  //const [hiddenResults, setHiddenResults] = useState(null); // Stores hidden test case results
+  const [error, setError] = useState("");
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    if (parsedUser) setUserId(parsedUser.id);
+  }, []);
+
+  useEffect(() => {
+    if (!questionId) {
+      setError("Invalid question ID");
+      setLoading(false);
+      return;
+    }
+
     const fetchQuestion = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/questions/${id}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch question details");
-        }
+        const response = await fetch(`http://localhost:5000/api/questions/${questionId}`);
+        if (!response.ok) throw new Error("Failed to fetch question");
         const data = await response.json();
         setQuestion(data);
       } catch (err) {
@@ -28,123 +39,180 @@ const QuestionDetails = () => {
         setLoading(false);
       }
     };
+
     fetchQuestion();
-  }, [id]);
+  }, [questionId]);
 
   const handleRun = async () => {
+    if (!question) return;
+
     setOutput("Running example test cases...");
     setExampleResults([]);
+    setSubmissionMessage("");
 
     try {
       const response = await fetch("http://localhost:5000/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: solution,
-          language: selectedLanguage,
+          code,
+          language,
           inputs: [question.exampleInput1, question.exampleInput2],
-          expectedOutputs: [question.exampleOutput1, question.exampleOutput2]
+          expectedOutputs: [question.exampleOutput1, question.exampleOutput2],
         }),
       });
 
-      const result = await response.json();
-      setOutput(result.message || result.output || "No output");
-      setExampleResults(result.exampleResults || []);
+      const data = await response.json();
+      setOutput(data.message);
+      setExampleResults(data.exampleResults || []);
     } catch (err) {
-      setOutput(`Error: ${err.message}`);
+      setOutput("Error running code");
+      console.error("Error running code:", err);
     }
   };
 
   const handleSubmit = async () => {
-    setOutput("Running all test cases...");
-    setExampleResults([]);
-    //setHiddenResults(null);
+    if (!userId) {
+      setOutput("Error: User not logged in.");
+      return;
+    }
 
     try {
+      setOutput("Submitting code...");
+      setExampleResults([]);
+      setSubmissionMessage("");
+      
       const response = await fetch("http://localhost:5000/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: solution,
-          language: selectedLanguage,
-          exampleInputs: [question.exampleInput1, question.exampleInput2],
-          expectedExampleOutputs: [question.exampleOutput1, question.exampleOutput2],
-          hiddenInputs: [question.hiddenInput1, question.hiddenInput2, question.hiddenInput3],
-          expectedHiddenOutputs: [question.hiddenOutput1, question.hiddenOutput2, question.hiddenOutput3]
+          userId,
+          questionId,
+          code,
+          language
         }),
       });
 
-      const result = await response.json();
-      setOutput(result.message || result.output || "No output");
-      setExampleResults(result.exampleResults || []);
-      //setHiddenResults(result.hiddenResults);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Submission failed");
+
+      setOutput(data.message);
+      setExampleResults(data.exampleResults || []);
+      setHasSubmitted(data.passedAllTests);
+
+      if (data.passedAllTests) {
+        setSubmissionMessage("✅ Submission successful! Progress updated.");
+      } else {
+        setSubmissionMessage("❌ Submission failed. Try again.");
+      }
     } catch (err) {
-      setOutput(`Error: ${err.message}`);
+      console.error("Error submitting:", err);
+      setOutput("Error submitting code");
     }
   };
 
-  if (loading) return <p>Loading question...</p>;
-  if (error) return <p>Error: {error}</p>;
+  if (loading) return <p>Loading question details...</p>;
+  if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
 
   return (
-    <div className="question-container">
-      <Link to="/" className="back-link">← Back to Questions</Link>
+    <div style={{ maxWidth: "800px", margin: "auto", padding: "20px" }}>
+      {question ? (
+        <div>
+          <h2>{question.title}</h2>
+          <p><strong>Description:</strong> {question.description}</p>
+          <p><strong>Difficulty:</strong> {question.difficulty}</p>
+          <p><strong>Category:</strong> {question.category}</p>
+          <p><strong>Points:</strong> {question.points}</p>
 
-      <h1 className="question-title">{question.title}</h1>
-      <p className="question-description">{question.description}</p>
+          <h3>Example Test Cases</h3>
+          <pre>Input: {question.exampleInput1} → Expected Output: {question.exampleOutput1}</pre>
+          <pre>Input: {question.exampleInput2} → Expected Output: {question.exampleOutput2}</pre>
 
-      <div className="example-test-cases">
-        <h3>Example Test Cases:</h3>
-        {question && [1, 2].map((index) => (
-          <div key={index} className="example-case">
-            <p><strong>Input {index}:</strong> {question[`exampleInput${index}`]}</p>
-            <p><strong>Expected Output {index}:</strong> {question[`exampleOutput${index}`]}</p>
-            {exampleResults.length > 0 && exampleResults[index - 1] && (
-              <>
-                <p><strong>Actual Output:</strong> {exampleResults[index - 1].output}</p>
-                <p className={exampleResults[index - 1].passed ? "test-pass" : "test-fail"}>
-                  {exampleResults[index - 1].passed ? "✅ Passed" : "❌ Failed"}
-                </p>
-              </>
-            )}
+          <h3>Your Code</h3>
+          <textarea
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Write your code here..."
+            rows={10}
+            cols={70}
+            style={{ width: "100%", fontFamily: "monospace" }}
+          />
+
+          <h3>Select Language</h3>
+          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+            <option value="Python">Python</option>
+            <option value="C">C</option>
+          </select>
+
+          <div style={{ marginTop: "20px", marginBottom: "20px" }}>
+            <button onClick={handleRun} style={{ marginRight: "10px", padding: "8px 16px" }}>
+              Run Code
+            </button>
+            <button 
+              onClick={handleSubmit} 
+              disabled={hasSubmitted} 
+              style={{ 
+                cursor: hasSubmitted ? "not-allowed" : "pointer",
+                padding: "8px 16px",
+                backgroundColor: hasSubmitted ? "#cccccc" : "#4CAF50",
+                color: "white",
+                border: "none",
+                borderRadius: "4px"
+              }}
+            >
+              {hasSubmitted ? "Already Submitted" : "Submit Code"}
+            </button>
           </div>
-        ))}
-      </div>
 
-      <div className="dropdown-container">
-        <label htmlFor="language-select">Select Language: </label>
-        <select 
-          id="language-select"
-          className="language-dropdown"
-          value={selectedLanguage}
-          onChange={(e) => setSelectedLanguage(e.target.value)}
-        >
-          <option value="C">C</option>
-          <option value="Python">Python</option>
-        </select>
-      </div>
+          {output && (
+            <div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
+              <h3>Output:</h3>
+              <p>{output}</p>
+            </div>
+          )}
 
-      <textarea
-        className="solution-input"
-        value={solution}
-        onChange={(e) => setSolution(e.target.value)}
-        placeholder={`Write your ${selectedLanguage} solution here...`}
-      />
+          {exampleResults.length > 0 && (
+            <div style={{ marginTop: "20px" }}>
+              <h3>Test Case Results:</h3>
+              <ul style={{ listStyleType: "none", padding: 0 }}>
+                {exampleResults.map((result, index) => (
+                  <li key={index} style={{ 
+                    marginBottom: "15px", 
+                    padding: "10px", 
+                    border: `1px solid ${result.passed ? "#4CAF50" : "#f44336"}`,
+                    borderRadius: "4px"
+                  }}>
+                    <p><strong>Input:</strong> {result.input}</p>
+                    <p><strong>Your Output:</strong> {result.output}</p>
+                    <p><strong>Expected Output:</strong> {result.expected}</p>
+                    <p style={{ 
+                      color: result.passed ? "#4CAF50" : "#f44336",
+                      fontWeight: "bold" 
+                    }}>
+                      {result.passed ? "✅ Passed" : "❌ Failed"}
+                    </p>
+                    {result.error && <p style={{ color: "#f44336" }}><strong>Error:</strong> {result.error}</p>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-      <button className="run-button" onClick={handleRun}>Run Code</button>
-      <button className="submit-button" onClick={handleSubmit}>Submit Code</button>
-
-      <div className="output-container">
-        <h3>Output:</h3>
-        <pre className="output-box">{output}</pre>
-            
-        {/* {hiddenResults === false && (
-          <p className="hidden-results">❌ Hidden test cases failed. Please retry.</p>
-        )}
-        {hiddenResults === true && (
-          <p className="success-message">✅ All test cases passed!</p>
-        )} */}
-      </div>
+          {submissionMessage && (
+            <div style={{ 
+              marginTop: "20px", 
+              padding: "10px", 
+              backgroundColor: submissionMessage.includes("✅") ? "#e8f5e9" : "#ffebee",
+              borderRadius: "4px",
+              fontWeight: "bold"
+            }}>
+              {submissionMessage}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p>Question not found.</p>
+      )}
     </div>
   );
 };

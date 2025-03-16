@@ -19,7 +19,7 @@ const TeacherChat = () => {
 
         const fetchUsers = async () => {
             try {
-                const res = await fetch("http://localhost:5000/api/users", {
+                const res = await fetch("http://localhost:5000/user", {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();

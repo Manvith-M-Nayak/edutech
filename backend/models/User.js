@@ -46,8 +46,17 @@ const UserSchema = new mongoose.Schema(
         },
         isTeacher: {
             type: Boolean,
-            default: false // ✅ By default, users are students; can be updated in MongoDB
-        }
+            default: false
+        },
+        lastStreakDate: {
+            type: String,
+            default: null,
+        },
+        completedQuestions: {
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: "Question",
+          default: [],
+        },
     },
     { timestamps: true }
 );
