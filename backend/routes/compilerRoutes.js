@@ -9,16 +9,18 @@ const router = express.Router();
 /**
  * Executes user-submitted code in C or Python, handling compilation (if needed) and execution.
  */
-const executeCode = (code, language, inputs) => {
+const executeCode = (code, language, inputs, userId) => {
     return new Promise((resolve) => {
         const isWindows = process.platform === "win32";
-        const filename = language === "C" ? "temp.c" : "temp.py";
-        let executable = language === "C" ? (isWindows ? "temp.exe" : "./temp.out") : "python";
+        const filename = language === "C" ? `temp${userId}.c` : `temp${userId}.py`;
+        let executable = language === "C" ? (isWindows ? `temp${userId}.exe` : `./temp${userId}.out`) : "python";
 
+        // Write code to file
         fs.writeFileSync(filename, code);
 
         if (language === "C") {
-            let compileProcess = spawn("gcc", [filename, "-o", isWindows ? "temp.exe" : "temp.out"]);
+            // Compile C code
+            const compileProcess = spawn("gcc", [filename, "-o", isWindows ? `temp${userId}.exe` : `temp${userId}.out`]);
             let compileError = "";
 
             compileProcess.stderr.on("data", (data) => {
@@ -27,14 +29,18 @@ const executeCode = (code, language, inputs) => {
 
             compileProcess.on("exit", (exitCode) => {
                 if (exitCode !== 0) {
+                    // Clean up the source file
+                    try { fs.unlinkSync(filename); } catch (err) { /* ignore */ }
                     return resolve({ output: "Compilation Error: " + compileError.trim(), error: true });
                 }
-                let runProcess = spawn(executable, [], { shell: true, stdio: ["pipe", "pipe", "pipe"] });
-                handleProcess(runProcess, inputs, resolve);
+                // Run the compiled executable
+                const runProcess = spawn(executable, [], { shell: true, stdio: ["pipe", "pipe", "pipe"] });
+                handleProcess(runProcess, inputs, resolve, userId, language, filename);
             });
         } else {
-            let runProcess = spawn("python", [filename], { stdio: ["pipe", "pipe", "pipe"] });
-            handleProcess(runProcess, inputs, resolve);
+            // Run Python code
+            const runProcess = spawn("python", [filename], { stdio: ["pipe", "pipe", "pipe"] });
+            handleProcess(runProcess, inputs, resolve, userId, language, filename);
         }
     });
 };
@@ -42,46 +48,71 @@ const executeCode = (code, language, inputs) => {
 /**
  * Handles input and output processing for the executed code.
  */
-const handleProcess = (process, inputs, resolve) => {
+const handleProcess = (process, inputs, resolve, userId, language, filename) => {
     let output = "";
     let errorOutput = "";
 
+    // Ensure inputs is an array
     if (!Array.isArray(inputs)) {
         inputs = [inputs];
     }
     
+    // Write inputs to the process
     inputs.forEach(input => {
         process.stdin.write(input + "\n");
     });
     process.stdin.end();
 
+    // Collect output
     process.stdout.on("data", (data) => {
         output += data.toString();
     });
 
+    // Collect error output
     process.stderr.on("data", (data) => {
         errorOutput += data.toString();
     });
 
+    // Handle process completion
     process.on("close", (exitCode) => {
+        // Clean up files
+        try { 
+            fs.unlinkSync(filename);
+            if (language === "C") {
+                const isWindows = process.platform === "win32";
+                fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
+            }
+        } catch (err) { /* ignore cleanup errors */ }
+
         if (exitCode !== 0) {
             return resolve({ output: "Error: " + errorOutput.trim(), error: true });
         }
         resolve({ output: output.trim(), error: false });
     });
 
+    // Handle process error
     process.on("error", (err) => {
+        // Clean up files on error
+        try { 
+            fs.unlinkSync(filename);
+            if (language === "C") {
+                const isWindows = process.platform === "win32";
+                fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
+            }
+        } catch (err) { /* ignore cleanup errors */ }
+
         resolve({ output: "Execution Error: " + err.message, error: true });
     });
 };
 
 /**
- * Endpoint to test a given code snippet against provided example inputs and expected outputs.
+ * Endpoint to run code against example test cases.
  */
 router.post("/run", async (req, res) => {
     try {
-        const { code, language, inputs, expectedOutputs } = req.body;
+        const { code, language, inputs, expectedOutputs, userId } = req.body;
 
+        // Validate required parameters
         if (!code || !language || !Array.isArray(inputs) || !Array.isArray(expectedOutputs)) {
             return res.status(400).json({
                 output: "Missing required parameters. Ensure 'code', 'language', 'inputs', and 'expectedOutputs' are provided.",
@@ -89,10 +120,13 @@ router.post("/run", async (req, res) => {
             });
         }
 
+        // Use temp ID if user is not logged in
+        const userIdToUse = userId || "temp" + Date.now();
+        
+        // Run code against each test case
         let exampleResults = [];
-
         for (let i = 0; i < inputs.length; i++) {
-            const result = await executeCode(code, language, inputs[i]);
+            const result = await executeCode(code, language, inputs[i], userIdToUse);
             const passed = result.output.trim() === expectedOutputs[i].trim();
             exampleResults.push({
                 input: inputs[i],
@@ -124,10 +158,12 @@ router.post("/submit", async (req, res) => {
     try {
         const { userId, questionId, code, language } = req.body;
         
+        // Validate required parameters
         if (!userId || !questionId || !code || !language) {
-            return res.status(400).json({ output: "Missing required parameters.", error: true });
+            return res.status(400).json({ message: "Missing required parameters" });
         }
         
+        // Find the question and user
         const question = await Question.findById(questionId);
         if (!question) {
             return res.status(404).json({ message: "Question not found" });
@@ -138,18 +174,26 @@ router.post("/submit", async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
         
-        // Fetch test cases from the Question model
+        // Check if user has already completed this question
+        const alreadyCompleted = user.completedQuestions.includes(questionId);
+        if (alreadyCompleted) {
+            return res.status(200).json({ 
+                message: "You've already completed this question.", 
+                passedAllTests: true,
+                alreadySubmitted: true
+            });
+        }
+        
+        // Get test cases from the question
         const exampleInputs = [question.exampleInput1, question.exampleInput2];
         const expectedExampleOutputs = [question.exampleOutput1, question.exampleOutput2];
         const hiddenInputs = [question.hiddenInput1, question.hiddenInput2, question.hiddenInput3];
         const expectedHiddenOutputs = [question.hiddenOutput1, question.hiddenOutput2, question.hiddenOutput3];
         
-        let exampleResults = [];
-        let hiddenResults = true;
-        
         // Run example test cases
+        let exampleResults = [];
         for (let i = 0; i < exampleInputs.length; i++) {
-            const result = await executeCode(code, language, exampleInputs[i]);
+            const result = await executeCode(code, language, exampleInputs[i], userId);
             const passed = result.output.trim() === expectedExampleOutputs[i].trim();
             exampleResults.push({
                 input: exampleInputs[i],
@@ -159,141 +203,101 @@ router.post("/submit", async (req, res) => {
             });
         }
         
+        // Check if all example tests passed
+        const allExamplesPassed = exampleResults.every(test => test.passed);
+        if (!allExamplesPassed) {
+            return res.json({
+                success: false,
+                passedAllTests: false,
+                exampleResults,
+                message: "❌ Example test cases failed."
+            });
+        }
+        
         // Run hidden test cases
+        let hiddenResults = true;
         for (let i = 0; i < hiddenInputs.length; i++) {
-            const result = await executeCode(code, language, hiddenInputs[i]);
+            const result = await executeCode(code, language, hiddenInputs[i], userId);
             if (result.output.trim() !== expectedHiddenOutputs[i].trim()) {
                 hiddenResults = false;
                 break;
             }
         }
         
-        const submissionPassed = exampleResults.every(test => test.passed) && hiddenResults;
-        
         // Create a new submission entry
         const newSubmission = {
             questionId: questionId,
             submission: code,
-            points: submissionPassed ? question.points : 0,
+            language: language,
+            points: hiddenResults ? question.points : 0,
             submittedAt: new Date()
         };
         
         // Add the submission to the user's questionSubmissions array
         user.questionSubmissions.push(newSubmission);
         
-        if (submissionPassed) {
-            // Update user progress
-            
-            // Only add points if this is the first time the user is passing this question
-            const alreadyCompleted = user.completedQuestions.includes(questionId);
-            if (!alreadyCompleted) {
-                user.totalPoints += question.points;
-            }
-            
-            // Get today's date
-            const today = new Date().toISOString().split("T")[0];
+        // Update user progress if all tests passed
+        if (hiddenResults) {
+            // Add points
+            user.totalPoints += question.points;
             
             // Update streak if applicable
+            const today = new Date().toISOString().split("T")[0];
             if (!user.lastStreakDate || user.lastStreakDate !== today) {
                 user.streaks += 1;
                 user.lastStreakDate = today;
             }
             
-            // Add the question to completed questions if not already completed
-            if (!alreadyCompleted) {
-                user.completedQuestions.push(questionId);
-            }
+            // Add the question to completed questions
+            user.completedQuestions.push(questionId);
         }
         
         // Save the user
         await user.save();
         
         return res.json({
-            success: submissionPassed,
-            passedAllTests: submissionPassed,
+            success: hiddenResults,
+            passedAllTests: hiddenResults,
             exampleResults,
-            hiddenResults,
-            message: submissionPassed ? "✅ All test cases passed! Points awarded." : "❌ Some test cases failed.",
+            message: hiddenResults 
+                ? "✅ All test cases passed! Points awarded." 
+                : "❌ Hidden test cases failed. Try a different approach.",
             submissionId: user.questionSubmissions[user.questionSubmissions.length - 1]._id
         });
     } catch (error) {
         console.error("Execution Error:", error);
-        return res.status(500).json({ output: "Internal Server Error", details: error.message });
+        return res.status(500).json({ message: "Internal Server Error", details: error.message });
     }
 });
+
 /**
- * Updates user progress when a coding problem is successfully solved.
+ * Get user information by ID
  */
-router.post("/update-user-progress", async (req, res) => {
+router.get("/users/:userId", async (req, res) => {
     try {
-        const { userId, questionId, points, increaseStreak } = req.body;
-
-        // Log the incoming request for debugging
-        console.log("Received request to update user progress:", req.body);
-
-        // Find the user by ID
-        let user = await User.findById(userId);
+        const { userId } = req.params;
+        
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required" });
+        }
+        
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-
-        // Check if the question has already been completed
-        if (user.completedQuestions.includes(questionId)) {
-            return res.status(400).json({ message: "Question already completed" });
-        }
-
-        // Update total points
-        user.totalPoints += points;
-
-        // Update streak if applicable
-        if (increaseStreak) {
-            // Get today's date at midnight (12 AM)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            if (!user.lastStreakDate) {
-                // First time earning streak
-                user.streaks = 1;
-                user.totalPoints += 1;
-            } else {
-                // Convert lastStreakDate string to Date object at midnight
-                const lastDate = new Date(user.lastStreakDate);
-                lastDate.setHours(0, 0, 0, 0);
-                
-                // Calculate days between last streak and today
-                const dayDifference = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-                
-                if (dayDifference === 0) {
-                    // Already logged in today - no streak change
-                } else if (dayDifference === 1) {
-                    // Consecutive day - increase streak
-                    user.streaks += 1;
-                    user.totalPoints += 1;
-                } else {
-                    // Missed streak (more than 1 day) - reset to 1
-                    user.streaks = 1;
-                }
-            }
-            
-            // Update the last streak date as today's date in ISO format
-            user.lastStreakDate = today.toISOString().split('T')[0];
-        }
-
-        // Add the question to completed questions
-        user.completedQuestions.push(questionId);
-
-        // Save the user
-        await user.save();
-
-        // Respond with the updated user progress
-        res.json({ 
-            message: "User progress updated successfully", 
-            points: user.totalPoints, 
-            streak: user.streaks 
+        
+        // Return user information (excluding sensitive data)
+        return res.json({
+            id: user._id,
+            username: user.username,
+            totalPoints: user.totalPoints,
+            streaks: user.streaks,
+            completedQuestions: user.completedQuestions,
+            lastStreakDate: user.lastStreakDate
         });
     } catch (error) {
-        console.error("Error updating user progress:", error);
-        res.status(500).json({ message: "Internal server error", details: error.message });
+        console.error("Error fetching user:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
     }
 });
 
