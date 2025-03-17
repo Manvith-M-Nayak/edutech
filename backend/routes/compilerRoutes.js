@@ -245,6 +245,7 @@ router.post("/submit", async (req, res) => {
             const today = new Date().toISOString().split("T")[0];
             if (!user.lastStreakDate || user.lastStreakDate !== today) {
                 user.streaks += 1;
+                user.totalPoints += 1;
                 user.lastStreakDate = today;
             }
             

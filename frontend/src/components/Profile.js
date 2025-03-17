@@ -138,9 +138,21 @@ const Profile = () => {
 const getBadges = (points) => {
     const badges = [];
 
-    if (points >= 500) badges.push({ name: "Python Master", icon: "🐍" });
-    if (points >= 1000) badges.push({ name: "C Champion", icon: "🏆" });
-    if (points >= 1500) badges.push({ name: "Team Player", icon: "👥" });
+    if (points >= 10) badges.push({ name: "Getting Started", icon: "🚀" });
+    if (points >= 20) badges.push({ name: "Beginner", icon: "🌱" });
+    if (points >= 30) badges.push({ name: "Novice", icon: "🔰" });
+    if (points >= 40) badges.push({ name: "Explorer", icon: "🧭" });
+    if (points >= 50) badges.push({ name: "Learner", icon: "📖" });
+    if (points >= 60) badges.push({ name: "Apprentice", icon: "🛠️" });
+    if (points >= 70) badges.push({ name: "Crazy", icon: "💻" });
+    if (points >= 80) badges.push({ name: "Enthusiast", icon: "🔥" });
+    if (points >= 90) badges.push({ name: "Coder", icon: "👨‍💻" });
+    if (points >= 100) badges.push({ name: "Adventurer", icon: "🏕️" });
+    if (points >= 120) badges.push({ name: "Ace", icon: "🎖️" });
+    if (points >= 140) badges.push({ name: "Master", icon: "🏆" });
+    if (points >= 160) badges.push({ name: "Expert", icon: "💡" });
+    if (points >= 180) badges.push({ name: "Pro", icon: "🎯" })
+    if (points >= 180) badges.push({ name: "Out of badges boss", icon: "🧠" })
 
     return badges.length ? badges : [{ name: "No Badges Yet", icon: "🚀" }];
 };
