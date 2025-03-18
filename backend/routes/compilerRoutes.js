@@ -6,11 +6,34 @@ const Question = require("../models/Question");
 
 const router = express.Router();
 
+// Map to store running processes by user ID
+const runningProcesses = new Map();
+
+/**
+ * Sanitizes error messages to remove file paths and names
+ */
+const sanitizeErrorMessage = (errorMsg) => {
+    if (!errorMsg) return "";
+    
+    // Replace common patterns that might contain filenames/paths
+    return errorMsg
+        .replace(/in\s+['"]?[\/\\]?.*?['"]?:/gi, "in code:")
+        .replace(/['"]?[\/\\]?.*?\.(?:py|c|exe|out)['"]?/gi, "code")
+        .replace(/file\s+['"]?.*?['"]?/gi, "file")
+        .replace(/['"]?temp\w+\.(py|c|exe|out)['"]?/g, "code")
+        .replace(/line\s+(\d+)/gi, "line $1");
+};
+
 /**
  * Executes user-submitted code in C or Python, handling compilation (if needed) and execution.
  */
 const executeCode = (code, language, inputs, userId) => {
     return new Promise((resolve) => {
+        // Terminate any existing process for this user
+        if (runningProcesses.has(userId)) {
+            terminateProcess(userId);
+        }
+
         const isWindows = process.platform === "win32";
         const filename = language === "C" ? `temp${userId}.c` : `temp${userId}.py`;
         let executable = language === "C" ? (isWindows ? `temp${userId}.exe` : `./temp${userId}.out`) : "python";
@@ -31,18 +54,57 @@ const executeCode = (code, language, inputs, userId) => {
                 if (exitCode !== 0) {
                     // Clean up the source file
                     try { fs.unlinkSync(filename); } catch (err) { /* ignore */ }
-                    return resolve({ output: "Compilation Error: " + compileError.trim(), error: true });
+                    // Sanitize error before returning
+                    return resolve({ output: "Compilation Error: " + sanitizeErrorMessage(compileError.trim()), error: true });
                 }
                 // Run the compiled executable
                 const runProcess = spawn(executable, [], { shell: true, stdio: ["pipe", "pipe", "pipe"] });
+                // Store the process reference
+                runningProcesses.set(userId, runProcess);
                 handleProcess(runProcess, inputs, resolve, userId, language, filename);
             });
         } else {
             // Run Python code
             const runProcess = spawn("python", [filename], { stdio: ["pipe", "pipe", "pipe"] });
+            // Store the process reference
+            runningProcesses.set(userId, runProcess);
             handleProcess(runProcess, inputs, resolve, userId, language, filename);
         }
     });
+};
+
+/**
+ * Terminates a running process by user ID
+ */
+const terminateProcess = (userId) => {
+    if (runningProcesses.has(userId)) {
+        const process = runningProcesses.get(userId);
+        
+        // Different termination methods based on platform
+        if (process.platform === "win32") {
+            spawn("taskkill", ["/pid", process.pid, "/f", "/t"]);
+        } else {
+            process.kill("SIGTERM");
+        }
+        
+        // Clean up files
+        try {
+            fs.unlinkSync(`temp${userId}.py`);
+        } catch (err) { /* ignore */ }
+        
+        try {
+            fs.unlinkSync(`temp${userId}.c`);
+        } catch (err) { /* ignore */ }
+        
+        try {
+            const isWindows = process.platform === "win32";
+            fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
+        } catch (err) { /* ignore */ }
+        
+        runningProcesses.delete(userId);
+        return true;
+    }
+    return false;
 };
 
 /**
@@ -75,6 +137,9 @@ const handleProcess = (process, inputs, resolve, userId, language, filename) => 
 
     // Handle process completion
     process.on("close", (exitCode) => {
+        // Remove from running processes map
+        runningProcesses.delete(userId);
+        
         // Clean up files
         try { 
             fs.unlinkSync(filename);
@@ -85,13 +150,17 @@ const handleProcess = (process, inputs, resolve, userId, language, filename) => 
         } catch (err) { /* ignore cleanup errors */ }
 
         if (exitCode !== 0) {
-            return resolve({ output: "Error: " + errorOutput.trim(), error: true });
+            // Sanitize error before returning
+            return resolve({ output: "Error: " + sanitizeErrorMessage(errorOutput.trim()), error: true });
         }
         resolve({ output: output.trim(), error: false });
     });
 
     // Handle process error
     process.on("error", (err) => {
+        // Remove from running processes map
+        runningProcesses.delete(userId);
+        
         // Clean up files on error
         try { 
             fs.unlinkSync(filename);
@@ -101,7 +170,8 @@ const handleProcess = (process, inputs, resolve, userId, language, filename) => 
             }
         } catch (err) { /* ignore cleanup errors */ }
 
-        resolve({ output: "Execution Error: " + err.message, error: true });
+        // Sanitize error message before returning
+        resolve({ output: "Execution Error: " + sanitizeErrorMessage(err.message), error: true });
     });
 };
 
@@ -146,7 +216,31 @@ router.post("/run", async (req, res) => {
         });
     } catch (error) {
         console.error("Execution Error:", error);
-        return res.status(500).json({ output: "Internal Server Error", details: error.message });
+        return res.status(500).json({ output: "Internal Server Error", details: sanitizeErrorMessage(error.message) });
+    }
+});
+
+/**
+ * Endpoint to terminate a running code execution process.
+ */
+router.post("/terminate", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required" });
+        }
+        
+        const terminated = terminateProcess(userId);
+        
+        if (terminated) {
+            return res.json({ message: "Code execution terminated successfully" });
+        } else {
+            return res.json({ message: "No running process found for this user" });
+        }
+    } catch (error) {
+        console.error("Termination Error:", error);
+        return res.status(500).json({ message: "Internal Server Error", details: sanitizeErrorMessage(error.message) });
     }
 });
 
@@ -267,7 +361,7 @@ router.post("/submit", async (req, res) => {
         });
     } catch (error) {
         console.error("Execution Error:", error);
-        return res.status(500).json({ message: "Internal Server Error", details: error.message });
+        return res.status(500).json({ message: "Internal Server Error", details: sanitizeErrorMessage(error.message) });
     }
 });
 
@@ -298,6 +392,24 @@ router.get("/users/:userId", async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching user:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+/**
+ * Get information about running processes
+ */
+router.get("/status", async (req, res) => {
+    try {
+        const runningCount = runningProcesses.size;
+        const runningUsers = Array.from(runningProcesses.keys());
+        
+        return res.json({
+            runningCount,
+            runningUsers
+        });
+    } catch (error) {
+        console.error("Error getting status:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 });

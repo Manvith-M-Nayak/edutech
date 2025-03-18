@@ -13,6 +13,7 @@ const QuestionDetails = () => {
   const [error, setError] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -61,6 +62,7 @@ const QuestionDetails = () => {
     setOutput("Running example test cases...");
     setExampleResults([]);
     setSubmissionMessage("");
+    setIsExecuting(true);
 
     try {
       const response = await fetch("http://localhost:5000/api/run", {
@@ -86,6 +88,33 @@ const QuestionDetails = () => {
     } catch (err) {
       setOutput(`Error running code: ${err.message}`);
       console.error("Error running code:", err);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const handleTerminate = async () => {
+    if (!userId && !localStorage.getItem("tempUserId")) {
+      setOutput("Error: Cannot identify process to terminate.");
+      return;
+    }
+
+    try {
+      const userIdToUse = userId || localStorage.getItem("tempUserId") || "temp";
+      const response = await fetch("http://localhost:5000/api/terminate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userIdToUse
+        }),
+      });
+
+      const data = await response.json();
+      setOutput(data.message);
+      setIsExecuting(false);
+    } catch (err) {
+      console.error("Error terminating code:", err);
+      setOutput(`Error terminating code: ${err.message}`);
     }
   };
 
@@ -104,6 +133,7 @@ const QuestionDetails = () => {
       setOutput("Submitting code...");
       setExampleResults([]);
       setSubmissionMessage("");
+      setIsExecuting(true);
       
       const response = await fetch("http://localhost:5000/api/submit", {
         method: "POST",
@@ -131,8 +161,21 @@ const QuestionDetails = () => {
     } catch (err) {
       console.error("Error submitting:", err);
       setOutput(`Error submitting code: ${err.message}`);
+    } finally {
+      setIsExecuting(false);
     }
   };
+
+  // Generate and store a temporary user ID for non-logged in users
+  useEffect(() => {
+    if (!userId) {
+      const tempId = localStorage.getItem("tempUserId");
+      if (!tempId) {
+        const newTempId = "temp" + Date.now();
+        localStorage.setItem("tempUserId", newTempId);
+      }
+    }
+  }, [userId]);
 
   if (loading) return <p>Loading question details...</p>;
   if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
@@ -178,25 +221,44 @@ const QuestionDetails = () => {
           <div style={{ marginTop: "20px", marginBottom: "20px" }}>
             <button 
               onClick={handleRun} 
+              disabled={isExecuting}
               style={{ 
                 marginRight: "10px", 
                 padding: "8px 16px",
-                backgroundColor: "#2196F3",
+                backgroundColor: isExecuting ? "#cccccc" : "#2196F3",
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
-                cursor: "pointer"
+                cursor: isExecuting ? "not-allowed" : "pointer"
               }}
             >
-              Run Code
+              {isExecuting ? "Running..." : "Run Code"}
             </button>
+            
+            {isExecuting && (
+              <button 
+                onClick={handleTerminate}
+                style={{ 
+                  marginRight: "10px", 
+                  padding: "8px 16px",
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Terminate Execution
+              </button>
+            )}
+            
             <button 
               onClick={handleSubmit} 
-              disabled={hasSubmitted} 
+              disabled={hasSubmitted || isExecuting} 
               style={{ 
-                cursor: hasSubmitted ? "not-allowed" : "pointer",
+                cursor: (hasSubmitted || isExecuting) ? "not-allowed" : "pointer",
                 padding: "8px 16px",
-                backgroundColor: hasSubmitted ? "#cccccc" : "#4CAF50",
+                backgroundColor: (hasSubmitted || isExecuting) ? "#cccccc" : "#4CAF50",
                 color: "white",
                 border: "none",
                 borderRadius: "4px"
@@ -233,7 +295,6 @@ const QuestionDetails = () => {
                     }}>
                       {result.passed ? "✅ Passed" : "❌ Failed"}
                     </p>
-                    {result.error && <p style={{ color: "#f44336" }}><strong>Error:</strong> {result.error}</p>}
                   </li>
                 ))}
               </ul>
