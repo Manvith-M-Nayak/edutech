@@ -11,6 +11,7 @@ import QuestionDetails from './components/QuestionDetails';
 import TeacherChat from "./components/TeacherChat";
 import SubmittedQuestions from "./components/SubmittedQuestions";
 
+
 // Main App component with routing
 function App() {
   return (
