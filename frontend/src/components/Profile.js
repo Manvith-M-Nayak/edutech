@@ -17,7 +17,7 @@ const Profile = () => {
             return;
         }
 
-        fetch(`${process.env.BACKEND_URL}/api/user/profile/${username}`, {
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/profile/${username}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

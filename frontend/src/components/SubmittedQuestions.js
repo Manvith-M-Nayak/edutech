@@ -23,7 +23,7 @@ const SubmittedQuestions = () => {
         
         const token = localStorage.getItem('authToken');
         
-        const questionsResponse = await axios.get(`${process.env.BACKEND_URL}/api/questions`, {
+        const questionsResponse = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/questions`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const questionsMap = {};
@@ -32,7 +32,7 @@ const SubmittedQuestions = () => {
         });
         setQuestions(questionsMap);
         
-        const usersResponse = await axios.get(`${process.env.BACKEND_URL}/api/users`, {
+        const usersResponse = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const usersMap = {};
@@ -41,7 +41,7 @@ const SubmittedQuestions = () => {
         });
         setUsers(usersMap);
         
-        const submissionsResponse = await axios.get(`${process.env.BACKEND_URL}/api/submissions`, {
+        const submissionsResponse = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/submissions`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         setSubmissions(submissionsResponse.data);

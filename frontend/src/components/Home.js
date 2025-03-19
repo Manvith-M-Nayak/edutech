@@ -16,7 +16,7 @@ const Home = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const response = await fetch(`${process.env.BACKEND_URL}/api/users/leaderboard`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/leaderboard`);
         const data = await response.json();
         
         // ✅ Filter out teachers and admins

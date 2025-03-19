@@ -32,6 +32,10 @@ app.use(
   })
 );
 
+app.get('/', (req, res) => {
+    res.status(200).send('API is running');
+  });
+
 // Define routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);

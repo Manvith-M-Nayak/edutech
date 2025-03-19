@@ -13,7 +13,7 @@ const Login = () => {
         setError('');
 
         try {
-            const response = await axios.post(`${process.env.BACKEND_URL}/api/auth/login`, credentials);
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/login`, credentials);
 
             // Extract user data and token
             const { token, user } = response.data; // Ensure backend sends 'user' along with 'token'
