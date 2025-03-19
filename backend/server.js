@@ -18,6 +18,15 @@ app.use(express.json()); // Body parser
 app.use(cors()); // Enable CORS for cross-origin requests
 
 connectDB();
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true, // Allow cookies if needed
+  })
+);
+
 
 app.use('/api/auth', authRoutes);
 app.use('/admin', adminRoutes);
