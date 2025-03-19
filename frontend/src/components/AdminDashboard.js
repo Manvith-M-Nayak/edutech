@@ -20,7 +20,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/questions`, {
+        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/questions`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -54,8 +54,8 @@ const AdminDashboard = () => {
         }
 
         const url = editingQuestionId 
-            ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/questions/${editingQuestionId}`
-            : `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/questions`;
+            ? `${process.env.REACT_APP_BACKEND_URL}/api/admin/questions/${editingQuestionId}`
+            : `${process.env.REACT_APP_BACKEND_URL}/api/admin/questions`;
 
         const method = editingQuestionId ? 'PUT' : 'POST';
 
@@ -102,7 +102,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/questions/${id}`, {
+        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/questions/${id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',

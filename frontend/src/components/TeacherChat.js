@@ -19,7 +19,7 @@ const TeacherChat = () => {
 
         const fetchUsers = async () => {
             try {
-                const res = await fetch(`${import.meta.env.NEXT_PUBLIC_BACKEND_URL}/user`, {
+                const res = await fetch(`${import.meta.env.REACT_APP_BACKEND_URL}/user`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -43,7 +43,7 @@ const TeacherChat = () => {
 
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/${receiverId}`, {
+                const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat/${receiverId}`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -70,7 +70,7 @@ const TeacherChat = () => {
         }
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

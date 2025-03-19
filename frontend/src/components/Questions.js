@@ -20,8 +20,8 @@ const Questions = () => {
       try {
         // Include userId as query parameter if available
         const url = userId 
-          ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/questions?userId=${userId}`
-          : `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/questions`;
+          ? `${process.env.REACT_APP_BACKEND_URL}/api/questions?userId=${userId}`
+          : `${process.env.REACT_APP_BACKEND_URL}/api/questions`;
           
         const response = await fetch(url);
 
