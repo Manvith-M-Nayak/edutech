@@ -33,7 +33,7 @@ app.use(
 );
 
 // Define routes
-app.use('/', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/users', leaderboardRoutes);
