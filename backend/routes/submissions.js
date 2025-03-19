@@ -50,7 +50,7 @@ router.get('/submissions', verifyToken, async (req, res) => {
 // @route   GET api/submissions/user/:userId
 // @desc    Get submissions for a specific user
 // @access  Private (own submissions) or Admin/Teacher
-router.get('/user/:userId', verifyToken, async (req, res) => {
+router.get('/api/user/:userId', verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
     

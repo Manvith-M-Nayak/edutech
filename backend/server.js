@@ -23,7 +23,7 @@ app.use(cors()); // Enable CORS for cross-origin requests
 // Connect to MongoDB
 connectDB();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000"; // Default frontend URL
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5000"; // Default frontend URL
 
 app.use(
   cors({
@@ -34,8 +34,8 @@ app.use(
 
 // Define routes
 app.use('/api/auth', authRoutes);
-app.use('/admin', adminRoutes);
-app.use('/user', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/users', leaderboardRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', compilerRoutes);
