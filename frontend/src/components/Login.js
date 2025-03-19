@@ -26,6 +26,7 @@ const Login = () => {
 
             navigate('/home'); // Redirect to Home
         } catch (err) {
+            console.log(err);
             setError('Invalid email or password');
         }
     };
