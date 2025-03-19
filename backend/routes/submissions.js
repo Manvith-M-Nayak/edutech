@@ -32,7 +32,7 @@ router.get('/submissions', verifyToken, async (req, res) => {
           submission: submission.submission,
           points: submission.points,
           submittedAt: submission.submittedAt,
-          language: submission.language  
+          language: submission.language || 'C'
         });
       });
     });

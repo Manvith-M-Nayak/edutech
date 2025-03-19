@@ -15,7 +15,7 @@ const TeacherAssistance = () => {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/send-message", {
+      const response = await fetch(`${import.meta.env.BACKEND_URL}/api/send-message`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

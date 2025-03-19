@@ -45,6 +45,7 @@ router.get("/profile/:username", verifyToken, async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 // ✅ Get students if the user is a teacher, and vice versa (for chat system)
 router.get("/", verifyToken, async (req, res) => {
     try {

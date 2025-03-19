@@ -19,7 +19,7 @@ const TeacherChat = () => {
 
         const fetchUsers = async () => {
             try {
-                const res = await fetch("http://localhost:5000/user", {
+                const res = await fetch(`${import.meta.env.BACKEND_URL}/user`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -43,7 +43,7 @@ const TeacherChat = () => {
 
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/chat/${receiverId}`, {
+                const res = await fetch(`${import.meta.env.BACKEND_URL}/api/chat/${receiverId}`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -70,7 +70,7 @@ const TeacherChat = () => {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/api/chat", {
+            const response = await fetch(`${import.meta.env.BACKEND_URL}/api/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

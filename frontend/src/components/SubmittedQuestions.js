@@ -23,7 +23,7 @@ const SubmittedQuestions = () => {
         
         const token = localStorage.getItem('authToken');
         
-        const questionsResponse = await axios.get('http://localhost:5000/api/questions', {
+        const questionsResponse = await axios.get(`${import.meta.env.BACKEND_URL}/api/questions`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const questionsMap = {};
@@ -32,7 +32,7 @@ const SubmittedQuestions = () => {
         });
         setQuestions(questionsMap);
         
-        const usersResponse = await axios.get('http://localhost:5000/api/users', {
+        const usersResponse = await axios.get(`${import.meta.env.BACKEND_URL}/api/users`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const usersMap = {};
@@ -41,11 +41,10 @@ const SubmittedQuestions = () => {
         });
         setUsers(usersMap);
         
-        const submissionsResponse = await axios.get('http://localhost:5000/api/submissions', {
+        const submissionsResponse = await axios.get(`${import.meta.env.BACKEND_URL}/api/submissions`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         setSubmissions(submissionsResponse.data);
-        
         setLoading(false);
       } catch (err) {
         console.error('API Error:', err.response ? err.response.data : err.message);

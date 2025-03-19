@@ -20,7 +20,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        fetch('http://localhost:5000/admin/questions', {
+        fetch(`${import.meta.env.BACKEND_URL}/admin/questions`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -54,8 +54,8 @@ const AdminDashboard = () => {
         }
 
         const url = editingQuestionId 
-            ? `http://localhost:5000/admin/questions/${editingQuestionId}`
-            : 'http://localhost:5000/admin/questions';
+            ? `${import.meta.env.BACKEND_URL}/admin/questions/${editingQuestionId}`
+            : `${import.meta.env.BACKEND_URL}/admin/questions`;
 
         const method = editingQuestionId ? 'PUT' : 'POST';
 
@@ -102,7 +102,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        fetch(`http://localhost:5000/admin/questions/${id}`, {
+        fetch(`${import.meta.env.BACKEND_URL}/admin/questions/${id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
