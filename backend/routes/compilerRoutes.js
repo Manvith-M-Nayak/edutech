@@ -23,15 +23,28 @@ const sanitizeErrorMessage = (errorMsg) => {
  */
 const executeCode = async (code, language, inputs) => {
     try {
+        // Map your language to the Piston API's supported languages
+        const languageMap = {
+            "C": "c",
+            "Python": "python",
+            "JavaScript": "javascript",
+            // Add more mappings as needed
+        };
+
+        const pistonLanguage = languageMap[language];
+        if (!pistonLanguage) {
+            return { output: "Unsupported language: " + language, error: true };
+        }
+
         const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
-            language: language,
-            version: "latest",
+            language: pistonLanguage, // Use the mapped language
+            version: "latest", // Use the latest version
             files: [
                 {
-                    content: code
+                    content: code // The code to execute
                 }
             ],
-            stdin: inputs.join("\n")
+            stdin: inputs.join("\n") // Join inputs with newlines
         });
 
         const output = response.data.run.output.trim();
@@ -43,6 +56,7 @@ const executeCode = async (code, language, inputs) => {
 
         return { output, error: false };
     } catch (error) {
+        console.error("Piston API Error:", error.response?.data || error.message);
         return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
     }
 };
