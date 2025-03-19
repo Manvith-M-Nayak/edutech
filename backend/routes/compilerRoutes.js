@@ -1,25 +1,15 @@
 const express = require("express");
-const fs = require("fs").promises;
-const { spawn } = require("child_process");
+const axios = require("axios");
 const User = require("../models/User");
 const Question = require("../models/Question");
-const path = require("path");
-const os = require("os");
 
 const router = express.Router();
-
-// Map to store running processes by user ID
-const runningProcesses = new Map();
-// Directory for temporary files
-const tempDir = path.join(os.tmpdir(), "code-executor");
 
 /**
  * Sanitizes error messages to remove file paths and names
  */
 const sanitizeErrorMessage = (errorMsg) => {
     if (!errorMsg) return "";
-    
-    // Replace common patterns that might contain filenames/paths
     return errorMsg
         .replace(/in\s+['"]?[\/\\]?.*?['"]?:/gi, "in code:")
         .replace(/['"]?[\/\\]?.*?\.(?:py|c|exe|out)['"]?/gi, "code")
@@ -29,211 +19,32 @@ const sanitizeErrorMessage = (errorMsg) => {
 };
 
 /**
- * Creates the temporary directory if it doesn't exist
+ * Executes user-submitted code using the Piston API.
  */
-const ensureTempDir = async () => {
+const executeCode = async (code, language, inputs) => {
     try {
-        await fs.mkdir(tempDir, { recursive: true });
-    } catch (err) {
-        console.error("Failed to create temp directory:", err);
-    }
-};
-
-/**
- * Executes code with input handling and timeout
- */
-const executeWithInputs = (command, args, inputs, timeout = 5000) => {
-    return new Promise((resolve) => {
-        let stdout = "";
-        let stderr = "";
-        
-        const process = spawn(command, args);
-        
-        // Store process with ID for potential termination
-        const processInfo = {
-            process,
-            pid: process.pid,
-            command,
-            args
-        };
-        
-        // Write inputs to stdin
-        if (inputs) {
-            // Make sure inputs is an array
-            const inputArray = Array.isArray(inputs) ? inputs : [inputs];
-            
-            // Write each input followed by newline
-            for (const input of inputArray) {
-                if (input && input.trim() !== "") {
-                    process.stdin.write(input + "\n");
+        const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
+            language: language,
+            version: "latest",
+            files: [
+                {
+                    content: code
                 }
-            }
-            process.stdin.end();
-        } else {
-            process.stdin.end();
-        }
-        
-        // Collect stdout
-        process.stdout.on("data", (data) => {
-            stdout += data.toString();
+            ],
+            stdin: inputs.join("\n")
         });
-        
-        // Collect stderr
-        process.stderr.on("data", (data) => {
-            stderr += data.toString();
-        });
-        
-        // Set timeout
-        const timeoutId = setTimeout(() => {
-            process.kill();
-            resolve({ 
-                error: true, 
-                stdout, 
-                stderr: stderr || "Execution timed out after " + (timeout/1000) + " seconds" 
-            });
-        }, timeout);
-        
-        // Handle process completion
-        process.on("close", (code) => {
-            clearTimeout(timeoutId);
-            resolve({
-                error: code !== 0,
-                stdout,
-                stderr,
-                exitCode: code
-            });
-        });
-        
-        // Handle process error
-        process.on("error", (err) => {
-            clearTimeout(timeoutId);
-            resolve({
-                error: true,
-                stdout,
-                stderr: err.message,
-                exitCode: 1
-            });
-        });
-        
-        return processInfo;
-    });
-};
 
-/**
- * Executes user-submitted code in C or Python, handling compilation (if needed) and execution.
- */
-const executeCode = async (code, language, inputs, userId) => {
-    await ensureTempDir();
-    
-    // Generate unique filenames using userId and timestamp to avoid collisions
-    const timestamp = Date.now();
-    const fileId = `${userId}_${timestamp}`;
-    const filePath = path.join(tempDir, fileId);
-    
-    // Terminate any existing process for this user
-    if (runningProcesses.has(userId)) {
-        await terminateProcess(userId);
-    }
-    
-    try {
-        if (language === "C") {
-            // Write C code to file
-            const cFilePath = `${filePath}.c`;
-            const outputPath = `${filePath}.out`;
-            
-            await fs.writeFile(cFilePath, code);
-            
-            // Compile C code with security flags
-            const compileArgs = [cFilePath, "-o", outputPath, "-Wall", "-std=c99"];
-            const compileResult = await executeWithInputs("gcc", compileArgs, null, 10000);
-            
-            if (compileResult.error) {
-                // Clean up the source file
-                await fs.unlink(cFilePath).catch(() => {});
-                return { 
-                    output: "Compilation Error: " + sanitizeErrorMessage(compileResult.stderr), 
-                    error: true 
-                };
-            }
-            
-            // Make the output file executable on UNIX systems
-            try {
-                await fs.chmod(outputPath, 0o755);
-            } catch (err) {
-                // Ignore chmod errors on Windows
-            }
-            
-            // Run the compiled executable with input
-            const runResult = await executeWithInputs(outputPath, [], inputs, 5000);
-            
-            // Clean up files
-            await Promise.all([
-                fs.unlink(cFilePath).catch(() => {}),
-                fs.unlink(outputPath).catch(() => {})
-            ]);
-            
-            if (runResult.error) {
-                return { 
-                    output: "Execution Error: " + sanitizeErrorMessage(runResult.stderr), 
-                    error: true 
-                };
-            }
-            
-            return { output: runResult.stdout.trim(), error: false };
-            
-        } else if (language === "Python") {
-            // Write Python code to file
-            const pyFilePath = `${filePath}.py`;
-            await fs.writeFile(pyFilePath, code);
-            
-            // Run Python code with input
-            const runResult = await executeWithInputs("python", [pyFilePath], inputs, 5000);
-            
-            // Clean up file
-            await fs.unlink(pyFilePath).catch(() => {});
-            
-            if (runResult.error) {
-                return { 
-                    output: "Execution Error: " + sanitizeErrorMessage(runResult.stderr), 
-                    error: true 
-                };
-            }
-            
-            return { output: runResult.stdout.trim(), error: false };
-        } else {
-            return { output: "Unsupported language: " + language, error: true };
-        }
-    } catch (err) {
-        // Clean up any remaining files
-        await fs.unlink(`${filePath}.c`).catch(() => {});
-        await fs.unlink(`${filePath}.py`).catch(() => {});
-        await fs.unlink(`${filePath}.out`).catch(() => {});
-        
-        return { 
-            output: "System Error: " + sanitizeErrorMessage(err.message), 
-            error: true 
-        };
-    }
-};
+        const output = response.data.run.output.trim();
+        const stderr = response.data.run.stderr.trim();
 
-/**
- * Terminates a running process by user ID
- */
-const terminateProcess = async (userId) => {
-    if (runningProcesses.has(userId)) {
-        const processInfo = runningProcesses.get(userId);
-        
-        // Kill the process
-        try {
-            processInfo.process.kill();
-        } catch (err) {
-            console.error("Error killing process:", err);
+        if (stderr) {
+            return { output: "Execution Error: " + stderr, error: true };
         }
-        
-        runningProcesses.delete(userId);
-        return true;
+
+        return { output, error: false };
+    } catch (error) {
+        return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
     }
-    return false;
 };
 
 /**
@@ -257,7 +68,7 @@ router.post("/run", async (req, res) => {
         // Run code against each test case
         let exampleResults = [];
         for (let i = 0; i < inputs.length; i++) {
-            const result = await executeCode(code, language, inputs[i], userIdToUse);
+            const result = await executeCode(code, language, [inputs[i]]);
             const passed = result.output.trim() === expectedOutputs[i].trim();
             exampleResults.push({
                 input: inputs[i],
@@ -278,30 +89,6 @@ router.post("/run", async (req, res) => {
     } catch (error) {
         console.error("Execution Error:", error);
         return res.status(500).json({ output: "Internal Server Error", details: sanitizeErrorMessage(error.message) });
-    }
-});
-
-/**
- * Endpoint to terminate a running code execution process.
- */
-router.post("/terminate", async (req, res) => {
-    try {
-        const { userId } = req.body;
-        
-        if (!userId) {
-            return res.status(400).json({ message: "User ID is required" });
-        }
-        
-        const terminated = await terminateProcess(userId);
-        
-        if (terminated) {
-            return res.json({ message: "Code execution terminated successfully" });
-        } else {
-            return res.json({ message: "No running process found for this user" });
-        }
-    } catch (error) {
-        console.error("Termination Error:", error);
-        return res.status(500).json({ message: "Internal Server Error", details: sanitizeErrorMessage(error.message) });
     }
 });
 
@@ -348,7 +135,7 @@ router.post("/submit", async (req, res) => {
         // Run example test cases
         let exampleResults = [];
         for (let i = 0; i < exampleInputs.length; i++) {
-            const result = await executeCode(code, language, exampleInputs[i], userId);
+            const result = await executeCode(code, language, [exampleInputs[i]]);
             const passed = result.output.trim() === expectedExampleOutputs[i].trim();
             exampleResults.push({
                 input: exampleInputs[i],
@@ -372,7 +159,7 @@ router.post("/submit", async (req, res) => {
         // Run hidden test cases
         let hiddenResults = true;
         for (let i = 0; i < hiddenInputs.length; i++) {
-            const result = await executeCode(code, language, hiddenInputs[i], userId);
+            const result = await executeCode(code, language, [hiddenInputs[i]]);
             if (result.output.trim() !== expectedHiddenOutputs[i].trim()) {
                 hiddenResults = false;
                 break;
@@ -472,24 +259,6 @@ router.get("/users/:userId", async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching user:", error);
-        return res.status(500).json({ message: "Internal Server Error" });
-    }
-});
-
-/**
- * Get information about running processes
- */
-router.get("/status", async (req, res) => {
-    try {
-        const runningCount = runningProcesses.size;
-        const runningUsers = Array.from(runningProcesses.keys());
-        
-        return res.json({
-            runningCount,
-            runningUsers
-        });
-    } catch (error) {
-        console.error("Error getting status:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 });
