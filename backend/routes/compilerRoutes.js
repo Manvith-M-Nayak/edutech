@@ -1,13 +1,17 @@
 const express = require("express");
-const fs = require("fs");
+const fs = require("fs").promises;
 const { spawn } = require("child_process");
 const User = require("../models/User");
 const Question = require("../models/Question");
+const path = require("path");
+const os = require("os");
 
 const router = express.Router();
 
 // Map to store running processes by user ID
 const runningProcesses = new Map();
+// Directory for temporary files
+const tempDir = path.join(os.tmpdir(), "code-executor");
 
 /**
  * Sanitizes error messages to remove file paths and names
@@ -25,154 +29,211 @@ const sanitizeErrorMessage = (errorMsg) => {
 };
 
 /**
+ * Creates the temporary directory if it doesn't exist
+ */
+const ensureTempDir = async () => {
+    try {
+        await fs.mkdir(tempDir, { recursive: true });
+    } catch (err) {
+        console.error("Failed to create temp directory:", err);
+    }
+};
+
+/**
+ * Executes code with input handling and timeout
+ */
+const executeWithInputs = (command, args, inputs, timeout = 5000) => {
+    return new Promise((resolve) => {
+        let stdout = "";
+        let stderr = "";
+        
+        const process = spawn(command, args);
+        
+        // Store process with ID for potential termination
+        const processInfo = {
+            process,
+            pid: process.pid,
+            command,
+            args
+        };
+        
+        // Write inputs to stdin
+        if (inputs) {
+            // Make sure inputs is an array
+            const inputArray = Array.isArray(inputs) ? inputs : [inputs];
+            
+            // Write each input followed by newline
+            for (const input of inputArray) {
+                if (input && input.trim() !== "") {
+                    process.stdin.write(input + "\n");
+                }
+            }
+            process.stdin.end();
+        } else {
+            process.stdin.end();
+        }
+        
+        // Collect stdout
+        process.stdout.on("data", (data) => {
+            stdout += data.toString();
+        });
+        
+        // Collect stderr
+        process.stderr.on("data", (data) => {
+            stderr += data.toString();
+        });
+        
+        // Set timeout
+        const timeoutId = setTimeout(() => {
+            process.kill();
+            resolve({ 
+                error: true, 
+                stdout, 
+                stderr: stderr || "Execution timed out after " + (timeout/1000) + " seconds" 
+            });
+        }, timeout);
+        
+        // Handle process completion
+        process.on("close", (code) => {
+            clearTimeout(timeoutId);
+            resolve({
+                error: code !== 0,
+                stdout,
+                stderr,
+                exitCode: code
+            });
+        });
+        
+        // Handle process error
+        process.on("error", (err) => {
+            clearTimeout(timeoutId);
+            resolve({
+                error: true,
+                stdout,
+                stderr: err.message,
+                exitCode: 1
+            });
+        });
+        
+        return processInfo;
+    });
+};
+
+/**
  * Executes user-submitted code in C or Python, handling compilation (if needed) and execution.
  */
-const executeCode = (code, language, inputs, userId) => {
-    return new Promise((resolve) => {
-        // Terminate any existing process for this user
-        if (runningProcesses.has(userId)) {
-            terminateProcess(userId);
-        }
-
-        const isWindows = process.platform === "win32";
-        const filename = language === "C" ? `temp${userId}.c` : `temp${userId}.py`;
-        let executable = language === "C" ? (isWindows ? `temp${userId}.exe` : `./temp${userId}.out`) : "python";
-
-        // Write code to file
-        fs.writeFileSync(filename, code);
-
+const executeCode = async (code, language, inputs, userId) => {
+    await ensureTempDir();
+    
+    // Generate unique filenames using userId and timestamp to avoid collisions
+    const timestamp = Date.now();
+    const fileId = `${userId}_${timestamp}`;
+    const filePath = path.join(tempDir, fileId);
+    
+    // Terminate any existing process for this user
+    if (runningProcesses.has(userId)) {
+        await terminateProcess(userId);
+    }
+    
+    try {
         if (language === "C") {
-            // Compile C code
-            const compileProcess = spawn("gcc", [filename, "-o", isWindows ? `temp${userId}.exe` : `temp${userId}.out`]);
-            let compileError = "";
-
-            compileProcess.stderr.on("data", (data) => {
-                compileError += data.toString();
-            });
-
-            compileProcess.on("exit", (exitCode) => {
-                if (exitCode !== 0) {
-                    // Clean up the source file
-                    try { fs.unlinkSync(filename); } catch (err) { /* ignore */ }
-                    // Sanitize error before returning
-                    return resolve({ output: "Compilation Error: " + sanitizeErrorMessage(compileError.trim()), error: true });
-                }
-                // Run the compiled executable
-                const runProcess = spawn(executable, [], { shell: true, stdio: ["pipe", "pipe", "pipe"] });
-                // Store the process reference
-                runningProcesses.set(userId, runProcess);
-                handleProcess(runProcess, inputs, resolve, userId, language, filename);
-            });
+            // Write C code to file
+            const cFilePath = `${filePath}.c`;
+            const outputPath = `${filePath}.out`;
+            
+            await fs.writeFile(cFilePath, code);
+            
+            // Compile C code with security flags
+            const compileArgs = [cFilePath, "-o", outputPath, "-Wall", "-std=c99"];
+            const compileResult = await executeWithInputs("gcc", compileArgs, null, 10000);
+            
+            if (compileResult.error) {
+                // Clean up the source file
+                await fs.unlink(cFilePath).catch(() => {});
+                return { 
+                    output: "Compilation Error: " + sanitizeErrorMessage(compileResult.stderr), 
+                    error: true 
+                };
+            }
+            
+            // Make the output file executable on UNIX systems
+            try {
+                await fs.chmod(outputPath, 0o755);
+            } catch (err) {
+                // Ignore chmod errors on Windows
+            }
+            
+            // Run the compiled executable with input
+            const runResult = await executeWithInputs(outputPath, [], inputs, 5000);
+            
+            // Clean up files
+            await Promise.all([
+                fs.unlink(cFilePath).catch(() => {}),
+                fs.unlink(outputPath).catch(() => {})
+            ]);
+            
+            if (runResult.error) {
+                return { 
+                    output: "Execution Error: " + sanitizeErrorMessage(runResult.stderr), 
+                    error: true 
+                };
+            }
+            
+            return { output: runResult.stdout.trim(), error: false };
+            
+        } else if (language === "Python") {
+            // Write Python code to file
+            const pyFilePath = `${filePath}.py`;
+            await fs.writeFile(pyFilePath, code);
+            
+            // Run Python code with input
+            const runResult = await executeWithInputs("python", [pyFilePath], inputs, 5000);
+            
+            // Clean up file
+            await fs.unlink(pyFilePath).catch(() => {});
+            
+            if (runResult.error) {
+                return { 
+                    output: "Execution Error: " + sanitizeErrorMessage(runResult.stderr), 
+                    error: true 
+                };
+            }
+            
+            return { output: runResult.stdout.trim(), error: false };
         } else {
-            // Run Python code
-            const runProcess = spawn("python", [filename], { stdio: ["pipe", "pipe", "pipe"] });
-            // Store the process reference
-            runningProcesses.set(userId, runProcess);
-            handleProcess(runProcess, inputs, resolve, userId, language, filename);
+            return { output: "Unsupported language: " + language, error: true };
         }
-    });
+    } catch (err) {
+        // Clean up any remaining files
+        await fs.unlink(`${filePath}.c`).catch(() => {});
+        await fs.unlink(`${filePath}.py`).catch(() => {});
+        await fs.unlink(`${filePath}.out`).catch(() => {});
+        
+        return { 
+            output: "System Error: " + sanitizeErrorMessage(err.message), 
+            error: true 
+        };
+    }
 };
 
 /**
  * Terminates a running process by user ID
  */
-const terminateProcess = (userId) => {
+const terminateProcess = async (userId) => {
     if (runningProcesses.has(userId)) {
-        const process = runningProcesses.get(userId);
+        const processInfo = runningProcesses.get(userId);
         
-        // Different termination methods based on platform
-        if (process.platform === "win32") {
-            spawn("taskkill", ["/pid", process.pid, "/f", "/t"]);
-        } else {
-            process.kill("SIGTERM");
+        // Kill the process
+        try {
+            processInfo.process.kill();
+        } catch (err) {
+            console.error("Error killing process:", err);
         }
-        
-        // Clean up files
-        try {
-            fs.unlinkSync(`temp${userId}.py`);
-        } catch (err) { /* ignore */ }
-        
-        try {
-            fs.unlinkSync(`temp${userId}.c`);
-        } catch (err) { /* ignore */ }
-        
-        try {
-            const isWindows = process.platform === "win32";
-            fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
-        } catch (err) { /* ignore */ }
         
         runningProcesses.delete(userId);
         return true;
     }
     return false;
-};
-
-/**
- * Handles input and output processing for the executed code.
- */
-const handleProcess = (process, inputs, resolve, userId, language, filename) => {
-    let output = "";
-    let errorOutput = "";
-
-    // Ensure inputs is an array
-    if (!Array.isArray(inputs)) {
-        inputs = [inputs];
-    }
-    
-    // Write inputs to the process
-    inputs.forEach(input => {
-        process.stdin.write(input + "\n");
-    });
-    process.stdin.end();
-
-    // Collect output
-    process.stdout.on("data", (data) => {
-        output += data.toString();
-    });
-
-    // Collect error output
-    process.stderr.on("data", (data) => {
-        errorOutput += data.toString();
-    });
-
-    // Handle process completion
-    process.on("close", (exitCode) => {
-        // Remove from running processes map
-        runningProcesses.delete(userId);
-        
-        // Clean up files
-        try { 
-            fs.unlinkSync(filename);
-            if (language === "C") {
-                const isWindows = process.platform === "win32";
-                fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
-            }
-        } catch (err) { /* ignore cleanup errors */ }
-
-        if (exitCode !== 0) {
-            // Sanitize error before returning
-            return resolve({ output: "Error: " + sanitizeErrorMessage(errorOutput.trim()), error: true });
-        }
-        resolve({ output: output.trim(), error: false });
-    });
-
-    // Handle process error
-    process.on("error", (err) => {
-        // Remove from running processes map
-        runningProcesses.delete(userId);
-        
-        // Clean up files on error
-        try { 
-            fs.unlinkSync(filename);
-            if (language === "C") {
-                const isWindows = process.platform === "win32";
-                fs.unlinkSync(isWindows ? `temp${userId}.exe` : `temp${userId}.out`);
-            }
-        } catch (err) { /* ignore cleanup errors */ }
-
-        // Sanitize error message before returning
-        resolve({ output: "Execution Error: " + sanitizeErrorMessage(err.message), error: true });
-    });
 };
 
 /**
@@ -231,7 +292,7 @@ router.post("/terminate", async (req, res) => {
             return res.status(400).json({ message: "User ID is required" });
         }
         
-        const terminated = terminateProcess(userId);
+        const terminated = await terminateProcess(userId);
         
         if (terminated) {
             return res.json({ message: "Code execution terminated successfully" });
@@ -258,12 +319,12 @@ router.post("/submit", async (req, res) => {
         }
         
         // Find the question and user
-        const question = await Question.findById(questionId);
+        const question = await Question.findById(questionId).exec();
         if (!question) {
             return res.status(404).json({ message: "Question not found" });
         }
         
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).exec();
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -332,19 +393,38 @@ router.post("/submit", async (req, res) => {
         
         // Update user progress if all tests passed
         if (hiddenResults) {
-            // Add points
             user.totalPoints += question.points;
-            
-            // Update streak if applicable
             const today = new Date().toISOString().split("T")[0];
-            if (!user.lastStreakDate || user.lastStreakDate !== today) {
-                user.streaks += 1;
-                user.totalPoints += 1;
+            if (!user.lastStreakDate) {
+                // First time user is answering a question
+                user.streaks = 1;
+                user.lastStreakDate = today;
+            } else {
+                const lastDate = new Date(user.lastStreakDate);
+                const currentDate = new Date(today);
+
+                // Calculate the difference in days
+                const timeDiff = currentDate - lastDate;
+                const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+                if (daysDiff === 1) {
+                    // User answered a question the day after their last activity
+                    user.streaks += 1;
+                } else if (daysDiff > 1) {
+                    // User missed a day or more, reset streak to 1
+                    user.streaks = 1;
+                } else if (daysDiff === 0) {
+                    // Same day, don't increment streak
+                    // No change to streak
+                }
+
                 user.lastStreakDate = today;
             }
-            
-            // Add the question to completed questions
-            user.completedQuestions.push(questionId);
+
+            // Add bonus point for maintaining streak
+            if (user.streaks > 0) {
+                user.totalPoints += 1;
+            }
         }
         
         // Save the user
@@ -376,7 +456,7 @@ router.get("/users/:userId", async (req, res) => {
             return res.status(400).json({ message: "User ID is required" });
         }
         
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).exec();
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }

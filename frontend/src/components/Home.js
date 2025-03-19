@@ -87,7 +87,6 @@ const Home = () => {
                 <span className="rank">#{user.totalPoints > 0 ? index + 1 : 'N/A'}</span>
                 <span className="username">{user.username}</span>
               </span>
-              <span className="points">{user.totalPoints} pts</span>
             </li>
           )) : <p className="no-data">No leaderboard data available</p>}
         </ul>

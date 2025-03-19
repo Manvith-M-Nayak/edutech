@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import "./QuestionDetails.css";
 
 const QuestionDetails = () => {
   const { id: questionId } = useParams();
@@ -178,141 +179,117 @@ const QuestionDetails = () => {
   }, [userId]);
 
   if (loading) return <p>Loading question details...</p>;
-  if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
+  if (error) return <p className="error-message">Error: {error}</p>;
 
   return (
-    <div style={{ maxWidth: "800px", margin: "auto", padding: "20px" }}>
+    <div className="question-details-container">
       {question ? (
-        <div>
-          <h2>{question.title}</h2>
-          <p><strong>Description:</strong> {question.description}</p>
-          <p><strong>Difficulty:</strong> {question.difficulty}</p>
-          <p><strong>Category:</strong> {question.category}</p>
-          <p><strong>Points:</strong> {question.points}</p>
-
-          <h3>Example Test Cases</h3>
-          <div style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", marginBottom: "15px" }}>
-            <pre>Input: {question.exampleInput1} → Expected Output: {question.exampleOutput1}</pre>
-            <pre>Input: {question.exampleInput2} → Expected Output: {question.exampleOutput2}</pre>
-          </div>
-
-          <h3>Your Code</h3>
-          <textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Write your code here..."
-            rows={10}
-            cols={70}
-            style={{ width: "100%", fontFamily: "monospace", padding: "10px" }}
-          />
-
-          <div style={{ marginTop: "15px" }}>
-            <h3>Select Language</h3>
-            <select 
-              value={language} 
-              onChange={(e) => setLanguage(e.target.value)}
-              style={{ padding: "5px", marginBottom: "15px" }}
-            >
-              <option value="Python">Python</option>
-              <option value="C">C</option>
-            </select>
-          </div>
-
-          <div style={{ marginTop: "20px", marginBottom: "20px" }}>
-            <button 
-              onClick={handleRun} 
-              disabled={isExecuting}
-              style={{ 
-                marginRight: "10px", 
-                padding: "8px 16px",
-                backgroundColor: isExecuting ? "#cccccc" : "#2196F3",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: isExecuting ? "not-allowed" : "pointer"
-              }}
-            >
-              {isExecuting ? "Running..." : "Run Code"}
-            </button>
+        <>
+          
+          <div className="question-info-section">
+            <h2 className="question-title">{question.title}</h2>
             
-            {isExecuting && (
-              <button 
-                onClick={handleTerminate}
-                style={{ 
-                  marginRight: "10px", 
-                  padding: "8px 16px",
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
+            <div className="question-metadata">
+              <p className="question-description"><strong>Description:</strong> {question.description}</p>
+              <p><strong>Difficulty:</strong> {question.difficulty}</p>
+              <p><strong>Category:</strong> {question.category}</p>
+              <p><strong>Points:</strong> {question.points}</p>
+            </div>
+            
+            <div className="test-cases">
+              <h3>Example Test Cases</h3>
+              <div className="test-case">
+                <p><strong>Input:</strong> {question.exampleInput1}</p>
+                <p><strong>Expected Output:</strong> {question.exampleOutput1}</p>
+              </div>
+              <div className="test-case">
+                <p><strong>Input:</strong> {question.exampleInput2}</p>
+                <p><strong>Expected Output:</strong> {question.exampleOutput2}</p>
+              </div>
+            </div>
+            
+            {exampleResults.length > 0 && (
+              <div className="output-section">
+                <h3>Test Case Results:</h3>
+                <ul className="results-list">
+                  {exampleResults.map((result, index) => (
+                    <li key={index} className={`result-item ${result.passed ? 'passed' : 'failed'}`}>
+                      <p><strong>Input:</strong> {result.input}</p>
+                      <p><strong>Your Output:</strong> {result.output}</p>
+                      <p><strong>Expected Output:</strong> {result.expected}</p>
+                      <p className={`result-status ${result.passed ? 'status-passed' : 'status-failed'}`}>
+                        {result.passed ? "✅ Passed" : "❌ Failed"}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          
+          <div className="code-editor-section">
+            <div className="language-selector">
+              <label htmlFor="language-select">Select Language:</label>
+              <select 
+                id="language-select"
+                className="language-select"
+                value={language} 
+                onChange={(e) => setLanguage(e.target.value)}
               >
-                Terminate Execution
+                <option value="Python">Python</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            
+            <textarea
+              className="code-editor"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Write your code here..."
+              spellCheck="false"
+            />
+            
+            <div className="button-group">
+              <button 
+                className={`btn btn-run ${isExecuting ? 'disabled' : ''}`}
+                onClick={handleRun} 
+                disabled={isExecuting}
+              >
+                {isExecuting ? "Running..." : "Run Code"}
               </button>
+              
+              {isExecuting && (
+                <button 
+                  className="btn btn-terminate"
+                  onClick={handleTerminate}
+                >
+                  Terminate Execution
+                </button>
+              )}
+              
+              <button 
+                className={`btn btn-submit ${(hasSubmitted || isExecuting) ? 'disabled' : ''}`}
+                onClick={handleSubmit} 
+                disabled={hasSubmitted || isExecuting} 
+              >
+                {hasSubmitted ? "Already Submitted" : "Submit Code"}
+              </button>
+            </div>
+            
+            {output && (
+              <div className="output-section">
+                <h3>Output:</h3>
+                <div className="output-text">{output}</div>
+              </div>
             )}
             
-            <button 
-              onClick={handleSubmit} 
-              disabled={hasSubmitted || isExecuting} 
-              style={{ 
-                cursor: (hasSubmitted || isExecuting) ? "not-allowed" : "pointer",
-                padding: "8px 16px",
-                backgroundColor: (hasSubmitted || isExecuting) ? "#cccccc" : "#4CAF50",
-                color: "white",
-                border: "none",
-                borderRadius: "4px"
-              }}
-            >
-              {hasSubmitted ? "Already Submitted" : "Submit Code"}
-            </button>
+            {submissionMessage && (
+              <div className={`submission-message ${submissionMessage.includes("✅") ? "submission-success" : "submission-failed"}`}>
+                {submissionMessage}
+              </div>
+            )}
           </div>
-
-          {output && (
-            <div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
-              <h3>Output:</h3>
-              <p>{output}</p>
-            </div>
-          )}
-
-          {exampleResults.length > 0 && (
-            <div style={{ marginTop: "20px" }}>
-              <h3>Test Case Results:</h3>
-              <ul style={{ listStyleType: "none", padding: 0 }}>
-                {exampleResults.map((result, index) => (
-                  <li key={index} style={{ 
-                    marginBottom: "15px", 
-                    padding: "10px", 
-                    border: `1px solid ${result.passed ? "#4CAF50" : "#f44336"}`,
-                    borderRadius: "4px"
-                  }}>
-                    <p><strong>Input:</strong> {result.input}</p>
-                    <p><strong>Your Output:</strong> {result.output}</p>
-                    <p><strong>Expected Output:</strong> {result.expected}</p>
-                    <p style={{ 
-                      color: result.passed ? "#4CAF50" : "#f44336",
-                      fontWeight: "bold" 
-                    }}>
-                      {result.passed ? "✅ Passed" : "❌ Failed"}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {submissionMessage && (
-            <div style={{ 
-              marginTop: "20px", 
-              padding: "10px", 
-              backgroundColor: submissionMessage.includes("✅") ? "#e8f5e9" : "#ffebee",
-              borderRadius: "4px",
-              fontWeight: "bold"
-            }}>
-              {submissionMessage}
-            </div>
-          )}
-        </div>
+        </>
       ) : (
         <p>Question not found.</p>
       )}

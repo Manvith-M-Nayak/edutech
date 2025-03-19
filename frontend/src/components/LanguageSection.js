@@ -26,7 +26,7 @@ const LanguageSelection = () => {
 
   return (
     <div className="language-selection-container">
-      <h2>Select a Language</h2>
+      <h2>View Competency Matrices</h2>
       <div className="language-buttons">
         {Object.keys(competencyMatrices).map((language) => (
           <button key={language} onClick={() => setSelectedLanguage(language)}>
