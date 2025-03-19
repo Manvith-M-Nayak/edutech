@@ -31,14 +31,14 @@ const QuestionDetails = () => {
 
     const fetchQuestion = async () => {
       try {
-        const response = await fetch(`${import.meta.env.BACKEND_URL}/api/questions/${questionId}`);
+        const response = await fetch(`${process.env.BACKEND_URL}/api/questions/${questionId}`);
         if (!response.ok) throw new Error("Failed to fetch question");
         const data = await response.json();
         setQuestion(data);
         
         // Check if user has already completed this question
         if (userId) {
-          const userResponse = await fetch(`${import.meta.env.BACKEND_URL}/api/users/${userId}`);
+          const userResponse = await fetch(`${process.env.BACKEND_URL}/api/users/${userId}`);
           if (userResponse.ok) {
             const userData = await userResponse.json();
             setHasSubmitted(userData.completedQuestions.includes(questionId));
@@ -66,7 +66,7 @@ const QuestionDetails = () => {
     setIsExecuting(true);
 
     try {
-      const response = await fetch(`${import.meta.env.BACKEND_URL}/api/run`, {
+      const response = await fetch(`${process.env.BACKEND_URL}/api/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -102,7 +102,7 @@ const QuestionDetails = () => {
 
     try {
       const userIdToUse = userId || localStorage.getItem("tempUserId") || "temp";
-      const response = await fetch(`${import.meta.env.BACKEND_URL}/api/terminate`, {
+      const response = await fetch(`${process.env.BACKEND_URL}/api/terminate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -136,7 +136,7 @@ const QuestionDetails = () => {
       setSubmissionMessage("");
       setIsExecuting(true);
       
-      const response = await fetch(`${import.meta.env.BACKEND_URL}/api/submit`, {
+      const response = await fetch(`${process.env.BACKEND_URL}/api/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

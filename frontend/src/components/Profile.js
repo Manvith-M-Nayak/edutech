@@ -17,7 +17,7 @@ const Profile = () => {
             return;
         }
 
-        fetch(`${import.meta.env.BACKEND_URL}/user/profile/${username}`, {
+        fetch(`${process.env.BACKEND_URL}/api/user/profile/${username}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

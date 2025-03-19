@@ -20,8 +20,8 @@ const Questions = () => {
       try {
         // Include userId as query parameter if available
         const url = userId 
-          ? `${import.meta.env.BACKEND_URL}/api/questions?userId=${userId}`
-          : `${import.meta.env.BACKEND_URL}/api/questions`;
+          ? `${process.env.BACKEND_URL}/api/questions?userId=${userId}`
+          : `${process.env.BACKEND_URL}/api/questions`;
           
         const response = await fetch(url);
 
