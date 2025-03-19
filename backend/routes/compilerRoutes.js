@@ -18,45 +18,64 @@ const sanitizeErrorMessage = (errorMsg) => {
         .replace(/line\s+(\d+)/gi, "line $1");
 };
 
-/**
- * Executes user-submitted code using the Piston API.
- */
+const Docker = require('dockerode');
+const docker = new Docker();
+
 const executeCode = async (code, language, inputs) => {
     try {
-        // Map your language to the Piston API's supported languages
+        // Map your language to the Docker image and command
         const languageMap = {
-            "C": "c",
-            "Python": "python",
-            "JavaScript": "javascript",
+            "C": {
+                image: "gcc",
+                cmd: ["sh", "-c", `echo "${code}" > code.c && gcc code.c -o code && ./code`]
+            },
+            "Python": {
+                image: "python",
+                cmd: ["sh", "-c", `echo "${code}" > code.py && python code.py`]
+            },
+            "JavaScript": {
+                image: "node",
+                cmd: ["sh", "-c", `echo "${code}" > code.js && node code.js`]
+            }
             // Add more mappings as needed
         };
 
-        const pistonLanguage = languageMap[language];
-        if (!pistonLanguage) {
+        const langConfig = languageMap[language];
+        if (!langConfig) {
             return { output: "Unsupported language: " + language, error: true };
         }
 
-        const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
-            language: pistonLanguage, // Use the mapped language
-            version: "latest", // Use the latest version
-            files: [
-                {
-                    content: code // The code to execute
-                }
-            ],
-            stdin: inputs.join("\n") // Join inputs with newlines
+        // Create a container with the specified image and command
+        const container = await docker.createContainer({
+            Image: langConfig.image,
+            Cmd: langConfig.cmd,
+            Tty: false,
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            OpenStdin: true,
+            StdinOnce: true
         });
 
-        const output = response.data.run.output.trim();
-        const stderr = response.data.run.stderr.trim();
+        // Start the container
+        await container.start();
 
-        if (stderr) {
-            return { output: "Execution Error: " + stderr, error: true };
-        }
+        // Attach to the container to get the output
+        const stream = await container.attach({ stream: true, stdout: true, stderr: true });
+        let output = '';
+        stream.on('data', (chunk) => {
+            output += chunk.toString();
+        });
 
-        return { output, error: false };
+        // Wait for the container to finish execution
+        await container.wait();
+
+        // Remove the container after execution
+        await container.remove();
+
+        return { output: output.trim(), error: false };
     } catch (error) {
-        console.error("Piston API Error:", error.response?.data || error.message);
+        console.error("Docker Execution Error:", error);
         return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
     }
 };
