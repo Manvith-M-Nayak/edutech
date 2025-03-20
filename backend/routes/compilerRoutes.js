@@ -18,65 +18,54 @@ const sanitizeErrorMessage = (errorMsg) => {
         .replace(/line\s+(\d+)/gi, "line $1");
 };
 
-const Docker = require('dockerode');
-const docker = new Docker();
-
-const executeCode = async (code, language, inputs) => {
+/**
+ * Execute code using JDoodle API
+ */
+const executeCode = async (code, language, input) => {
     try {
-        // Map your language to the Docker image and command
+        // JDoodle API credentials - you should store these in environment variables
+        const clientId = process.env.JDOODLE_CLIENT_ID;
+        const clientSecret = process.env.JDOODLE_CLIENT_SECRET;
+        
+        // Map our language names to JDoodle language identifiers
         const languageMap = {
-            "C": {
-                image: "gcc",
-                cmd: ["sh", "-c", `echo "${code}" > code.c && gcc code.c -o code && ./code`]
-            },
-            "Python": {
-                image: "python",
-                cmd: ["sh", "-c", `echo "${code}" > code.py && python code.py`]
-            },
-            "JavaScript": {
-                image: "node",
-                cmd: ["sh", "-c", `echo "${code}" > code.js && node code.js`]
-            }
-            // Add more mappings as needed
+            "C": "c",
+            "Python": "python3"
         };
-
-        const langConfig = languageMap[language];
-        if (!langConfig) {
+        
+        const jdoodleLanguage = languageMap[language];
+        if (!jdoodleLanguage) {
             return { output: "Unsupported language: " + language, error: true };
         }
-
-        // Create a container with the specified image and command
-        const container = await docker.createContainer({
-            Image: langConfig.image,
-            Cmd: langConfig.cmd,
-            Tty: false,
-            AttachStdin: true,
-            AttachStdout: true,
-            AttachStderr: true,
-            OpenStdin: true,
-            StdinOnce: true
-        });
-
-        // Start the container
-        await container.start();
-
-        // Attach to the container to get the output
-        const stream = await container.attach({ stream: true, stdout: true, stderr: true });
-        let output = '';
-        stream.on('data', (chunk) => {
-            output += chunk.toString();
-        });
-
-        // Wait for the container to finish execution
-        await container.wait();
-
-        // Remove the container after execution
-        await container.remove();
-
-        return { output: output.trim(), error: false };
+        
+        // Prepare the request payload
+        const payload = {
+            clientId,
+            clientSecret,
+            script: code,
+            language: jdoodleLanguage,
+            versionIndex: "0", // Use latest version
+            stdin: input ? input.join("\n") : "" // Join multiple inputs with newline
+        };
+        
+        // Make the API request
+        const response = await axios.post("https://api.jdoodle.com/v1/execute", payload);
+        
+        // Process the response
+        if (response.data.error) {
+            return { output: sanitizeErrorMessage(response.data.error), error: true };
+        }
+        
+        return { 
+            output: response.data.output.trim(), 
+            error: response.data.statusCode !== 200 
+        };
     } catch (error) {
-        console.error("Docker Execution Error:", error);
-        return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
+        console.error("JDoodle API Error:", error);
+        return { 
+            output: "System Error: " + sanitizeErrorMessage(error.message), 
+            error: true 
+        };
     }
 };
 
@@ -244,6 +233,11 @@ router.post("/submit", async (req, res) => {
             // Add bonus point for maintaining streak
             if (user.streaks > 0) {
                 user.totalPoints += 1;
+            }
+            
+            // Add question to completed questions
+            if (!user.completedQuestions.includes(questionId)) {
+                user.completedQuestions.push(questionId);
             }
         }
         
