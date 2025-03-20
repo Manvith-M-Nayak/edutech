@@ -2,6 +2,9 @@ const express = require("express");
 const axios = require("axios");
 const User = require("../models/User");
 const Question = require("../models/Question");
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -21,64 +24,212 @@ const sanitizeErrorMessage = (errorMsg) => {
 const Docker = require('dockerode');
 const docker = new Docker();
 
-const executeCode = async (code, language, inputs) => {
+// Container references
+let gccContainer = null;
+let pythonContainer = null;
+
+// Create temp directory if it doesn't exist
+const tempDir = path.resolve(process.cwd(), 'temp_execution');
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+}
+
+/**
+ * Generate a safe filename based on userId and random string
+ * @param {string} userId - User ID or temp ID
+ * @returns {string} Safe filename
+ */
+const generateSafeFilename = (userId) => {
+    const safeUserId = userId.replace(/[^a-zA-Z0-9]/g, '_');
+    const randomString = crypto.randomBytes(8).toString('hex');
+    return `${safeUserId}_${randomString}_${Date.now()}`;
+};
+
+/**
+ * Initialize Docker containers when the server starts
+ */
+const initializeContainers = async () => {
     try {
-        // Map your language to the Docker image and command
-        const languageMap = {
-            "C": {
-                image: "gcc",
-                cmd: ["sh", "-c", `echo "${code}" > code.c && gcc code.c -o code && ./code`]
-            },
-            "Python": {
-                image: "python",
-                cmd: ["sh", "-c", `echo "${code}" > code.py && python code.py`]
-            },
-            "JavaScript": {
-                image: "node",
-                cmd: ["sh", "-c", `echo "${code}" > code.js && node code.js`]
-            }
-            // Add more mappings as needed
-        };
+        console.log("Initializing Docker containers...");
 
-        const langConfig = languageMap[language];
-        if (!langConfig) {
-            return { output: "Unsupported language: " + language, error: true };
+        // Start GCC container
+        gccContainer = await docker.createContainer({
+            Image: "gcc:latest",
+            name: "code_execution_gcc",
+            WorkingDir: "/workdir",
+            Cmd: ["tail", "-f", "/dev/null"],  // Keep container running
+            HostConfig: {
+                Binds: [`${tempDir}:/workdir`],
+                AutoRemove: false
+            },
+            Tty: true
+        });
+        await gccContainer.start();
+        console.log("GCC container started");
+
+        // Start Python container
+        pythonContainer = await docker.createContainer({
+            Image: "python:latest",
+            name: "code_execution_python",
+            WorkingDir: "/workdir",
+            Cmd: ["tail", "-f", "/dev/null"],  // Keep container running
+            HostConfig: {
+                Binds: [`${tempDir}:/workdir`],
+                AutoRemove: false
+            },
+            Tty: true
+        });
+        await pythonContainer.start();
+        console.log("Python container started");
+
+    } catch (error) {
+        console.error("Error initializing Docker containers:", error);
+        throw error;
+    }
+};
+
+/**
+ * Execute code using pre-initialized Docker containers
+ */
+const executeCode = async (code, language, inputs, userId) => {
+    try {
+        let container;
+        let cmd;
+        
+        // Generate a safe, unique filename for this execution
+        const safeFilename = generateSafeFilename(userId || 'anonymous');
+        const filePath = path.join(tempDir, safeFilename);
+        
+        // Select container and prepare command based on language
+        switch (language) {
+            case "C":
+                container = gccContainer;
+                fs.writeFileSync(`${filePath}.c`, code);
+                cmd = `gcc /workdir/${safeFilename}.c -o /workdir/${safeFilename} && /workdir/${safeFilename}`;
+                break;
+            case "Python":
+                container = pythonContainer;
+                fs.writeFileSync(`${filePath}.py`, code);
+                cmd = `python /workdir/${safeFilename}.py`;
+                break;
+            default:
+                return { output: "Unsupported language: " + language, error: true };
         }
-
-        // Create a container with the specified image and command
-        const container = await docker.createContainer({
-            Image: langConfig.image,
-            Cmd: langConfig.cmd,
-            Tty: false,
-            AttachStdin: true,
+        
+        // Prepare input if provided
+        const inputContent = inputs && inputs.length > 0 ? inputs.join('\n') : '';
+        if (inputContent) {
+            fs.writeFileSync(`${filePath}.input`, inputContent);
+            cmd = `cat /workdir/${safeFilename}.input | ${cmd}`;
+        }
+        
+        // Execute command in the container
+        const exec = await container.exec({
+            Cmd: ['sh', '-c', cmd],
             AttachStdout: true,
-            AttachStderr: true,
-            OpenStdin: true,
-            StdinOnce: true
+            AttachStderr: true
         });
-
-        // Start the container
-        await container.start();
-
-        // Attach to the container to get the output
-        const stream = await container.attach({ stream: true, stdout: true, stderr: true });
+        
+        // Get output
+        const stream = await exec.start();
         let output = '';
-        stream.on('data', (chunk) => {
-            output += chunk.toString();
+        
+        await new Promise((resolve) => {
+            stream.on('data', (chunk) => {
+                output += chunk.toString();
+            });
+            stream.on('end', resolve);
         });
-
-        // Wait for the container to finish execution
-        await container.wait();
-
-        // Remove the container after execution
-        await container.remove();
-
-        return { output: output.trim(), error: false };
+        
+        // Get exit code
+        const inspectInfo = await exec.inspect();
+        const exitCode = inspectInfo.ExitCode;
+        
+        // Clean up files
+        try {
+            if (fs.existsSync(`${filePath}.c`)) fs.unlinkSync(`${filePath}.c`);
+            if (fs.existsSync(`${filePath}.py`)) fs.unlinkSync(`${filePath}.py`);
+            if (fs.existsSync(`${filePath}.input`)) fs.unlinkSync(`${filePath}.input`);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch (err) {
+            console.error("Cleanup error:", err);
+        }
+        
+        return { 
+            output: output.trim(), 
+            error: exitCode !== 0,
+            exitCode: exitCode
+        };
     } catch (error) {
         console.error("Docker Execution Error:", error);
         return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
     }
 };
+
+/**
+ * Handler for graceful shutdown
+ */
+const cleanupContainers = async () => {
+    try {
+        console.log("Cleaning up Docker containers...");
+        
+        if (gccContainer) {
+            await gccContainer.stop();
+            await gccContainer.remove();
+            console.log("GCC container stopped and removed");
+        }
+        
+        if (pythonContainer) {
+            await pythonContainer.stop();
+            await pythonContainer.remove();
+            console.log("Python container stopped and removed");
+        }
+    } catch (error) {
+        console.error("Error during container cleanup:", error);
+    }
+};
+
+// Initialize containers when the module is loaded
+initializeContainers().catch(error => {
+    console.error("Failed to initialize containers:", error);
+    process.exit(1);
+});
+
+// Set up cleanup on process exit
+process.on('SIGINT', async () => {
+    console.log("Received SIGINT, cleaning up...");
+    await cleanupContainers();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log("Received SIGTERM, cleaning up...");
+    await cleanupContainers();
+    process.exit(0);
+});
+
+/**
+ * Periodically clean up any orphaned files
+ */
+setInterval(() => {
+    try {
+        const files = fs.readdirSync(tempDir);
+        const now = Date.now();
+        
+        files.forEach(file => {
+            const filePath = path.join(tempDir, file);
+            const stats = fs.statSync(filePath);
+            
+            // Remove files older than 1 hour
+            if (now - stats.mtime.getTime() > 60 * 60 * 1000) {
+                fs.unlinkSync(filePath);
+                console.log(`Cleaned up old file: ${file}`);
+            }
+        });
+    } catch (error) {
+        console.error("Error cleaning up temp files:", error);
+    }
+}, 30 * 60 * 1000); // Run every 30 minutes
 
 /**
  * Endpoint to run code against example test cases.
@@ -101,7 +252,7 @@ router.post("/run", async (req, res) => {
         // Run code against each test case
         let exampleResults = [];
         for (let i = 0; i < inputs.length; i++) {
-            const result = await executeCode(code, language, [inputs[i]]);
+            const result = await executeCode(code, language, [inputs[i]], userIdToUse);
             const passed = result.output.trim() === expectedOutputs[i].trim();
             exampleResults.push({
                 input: inputs[i],
@@ -168,7 +319,7 @@ router.post("/submit", async (req, res) => {
         // Run example test cases
         let exampleResults = [];
         for (let i = 0; i < exampleInputs.length; i++) {
-            const result = await executeCode(code, language, [exampleInputs[i]]);
+            const result = await executeCode(code, language, [exampleInputs[i]], userId);
             const passed = result.output.trim() === expectedExampleOutputs[i].trim();
             exampleResults.push({
                 input: exampleInputs[i],
@@ -192,7 +343,7 @@ router.post("/submit", async (req, res) => {
         // Run hidden test cases
         let hiddenResults = true;
         for (let i = 0; i < hiddenInputs.length; i++) {
-            const result = await executeCode(code, language, [hiddenInputs[i]]);
+            const result = await executeCode(code, language, [hiddenInputs[i]], userId);
             if (result.output.trim() !== expectedHiddenOutputs[i].trim()) {
                 hiddenResults = false;
                 break;
