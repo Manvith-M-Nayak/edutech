@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config(); // Load environment variables
 const express = require('express');
 const cors = require('cors');
@@ -21,7 +22,7 @@ app.use(express.json()); // Body parser
 connectDB();
 
 // Setup CORS
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000"; // Change localhost port to frontend port
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 app.use(
   cors({
     origin: FRONTEND_URL,
@@ -43,8 +44,13 @@ app.use('/api', compilerRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api', submissions);
 
-// 🔹 FIX: Start the Express server (required for Render)
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// For local development only
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express API for Vercel
+module.exports = app;
