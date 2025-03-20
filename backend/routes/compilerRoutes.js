@@ -21,17 +21,22 @@ const sanitizeErrorMessage = (errorMsg) => {
         .replace(/line\s+(\d+)/gi, "line $1");
 };
 
-const Docker = require('dockerode');
-const docker = new Docker();
+// For Vercel, we need to use a different approach since Docker isn't available
+// Using a code execution service option
 
-// Container references
-let gccContainer = null;
-let pythonContainer = null;
+// Use the /tmp directory which is writable in Vercel
+const tempDir = process.env.NODE_ENV === 'production' 
+    ? '/tmp/code_execution' 
+    : path.resolve(process.cwd(), 'temp_execution');
 
 // Create temp directory if it doesn't exist
-const tempDir = path.resolve(process.cwd(), 'temp_execution');
 if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
+    try {
+        fs.mkdirSync(tempDir, { recursive: true });
+        console.log(`Created temp directory: ${tempDir}`);
+    } catch (error) {
+        console.error(`Failed to create temp directory: ${error.message}`);
+    }
 }
 
 /**
@@ -46,167 +51,220 @@ const generateSafeFilename = (userId) => {
 };
 
 /**
- * Initialize Docker containers when the server starts
+ * Execute code using child_process for local development
+ * For production, we'd integrate with a code execution service
  */
-const initializeContainers = async () => {
-    try {
-        console.log("Initializing Docker containers...");
-
-        // Start GCC container
-        gccContainer = await docker.createContainer({
-            Image: "gcc:latest",
-            name: "code_execution_gcc",
-            WorkingDir: "/workdir",
-            Cmd: ["tail", "-f", "/dev/null"],  // Keep container running
-            HostConfig: {
-                Binds: [`${tempDir}:/workdir`],
-                AutoRemove: false
-            },
-            Tty: true
-        });
-        await gccContainer.start();
-        console.log("GCC container started");
-
-        // Start Python container
-        pythonContainer = await docker.createContainer({
-            Image: "python:latest",
-            name: "code_execution_python",
-            WorkingDir: "/workdir",
-            Cmd: ["tail", "-f", "/dev/null"],  // Keep container running
-            HostConfig: {
-                Binds: [`${tempDir}:/workdir`],
-                AutoRemove: false
-            },
-            Tty: true
-        });
-        await pythonContainer.start();
-        console.log("Python container started");
-
-    } catch (error) {
-        console.error("Error initializing Docker containers:", error);
-        throw error;
+const executeCode = async (code, language, inputs, userId) => {
+    // In Vercel's production environment, we need an alternative approach
+    if (process.env.NODE_ENV === 'production') {
+        return await executeCodeServerless(code, language, inputs, userId);
+    } else {
+        // For local development, use a simplified approach with child_process
+        return await executeCodeLocal(code, language, inputs, userId);
     }
 };
 
 /**
- * Execute code using pre-initialized Docker containers
+ * Execute code in Vercel's serverless environment
+ * This uses child_process with strict timeouts and resource limits
  */
-const executeCode = async (code, language, inputs, userId) => {
+const executeCodeServerless = async (code, language, inputs, userId) => {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
     try {
-        let container;
-        let cmd;
-        
         // Generate a safe, unique filename for this execution
         const safeFilename = generateSafeFilename(userId || 'anonymous');
         const filePath = path.join(tempDir, safeFilename);
         
-        // Select container and prepare command based on language
+        let cmd;
+        
+        // Prepare command based on language
         switch (language) {
-            case "C":
-                container = gccContainer;
-                fs.writeFileSync(`${filePath}.c`, code);
-                cmd = `gcc /workdir/${safeFilename}.c -o /workdir/${safeFilename} && /workdir/${safeFilename}`;
-                break;
             case "Python":
-                container = pythonContainer;
                 fs.writeFileSync(`${filePath}.py`, code);
-                cmd = `python /workdir/${safeFilename}.py`;
+                // For Python, we can use the built-in Python
+                cmd = `cd ${tempDir} && python ${safeFilename}.py`;
                 break;
+            case "C":
+                fs.writeFileSync(`${filePath}.c`, code);
+                // For C, we'd need to check if gcc is available
+                // For Vercel, this won't work without special buildpacks
+                return { 
+                    output: "C compilation is not supported in this environment", 
+                    error: true 
+                };
             default:
-                return { output: "Unsupported language: " + language, error: true };
+                return { 
+                    output: "Unsupported language: " + language, 
+                    error: true 
+                };
         }
         
         // Prepare input if provided
-        const inputContent = inputs && inputs.length > 0 ? inputs.join('\n') : '';
-        if (inputContent) {
+        if (inputs && inputs.length > 0) {
+            const inputContent = inputs.join('\n');
             fs.writeFileSync(`${filePath}.input`, inputContent);
-            cmd = `cat /workdir/${safeFilename}.input | ${cmd}`;
+            cmd = `cd ${tempDir} && cat ${safeFilename}.input | ${cmd.split(' && ')[1]}`;
         }
         
-        // Execute command in the container
-        const exec = await container.exec({
-            Cmd: ['sh', '-c', cmd],
-            AttachStdout: true,
-            AttachStderr: true
+        // Execute with timeout
+        const { stdout, stderr } = await execPromise(cmd, { 
+            timeout: 5000, // 5 seconds timeout
+            maxBuffer: 1024 * 1024 // 1MB max buffer
         });
-        
-        // Get output
-        const stream = await exec.start();
-        let output = '';
-        
-        await new Promise((resolve) => {
-            stream.on('data', (chunk) => {
-                output += chunk.toString();
-            });
-            stream.on('end', resolve);
-        });
-        
-        // Get exit code
-        const inspectInfo = await exec.inspect();
-        const exitCode = inspectInfo.ExitCode;
         
         // Clean up files
         try {
-            if (fs.existsSync(`${filePath}.c`)) fs.unlinkSync(`${filePath}.c`);
             if (fs.existsSync(`${filePath}.py`)) fs.unlinkSync(`${filePath}.py`);
+            if (fs.existsSync(`${filePath}.c`)) fs.unlinkSync(`${filePath}.c`);
             if (fs.existsSync(`${filePath}.input`)) fs.unlinkSync(`${filePath}.input`);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         } catch (err) {
             console.error("Cleanup error:", err);
         }
         
-        return { 
-            output: output.trim(), 
-            error: exitCode !== 0,
-            exitCode: exitCode
+        return {
+            output: stdout || stderr,
+            error: !!stderr,
+            exitCode: stderr ? 1 : 0
         };
     } catch (error) {
-        console.error("Docker Execution Error:", error);
-        return { output: "System Error: " + sanitizeErrorMessage(error.message), error: true };
+        console.error("Execution Error:", error);
+        return { 
+            output: "Execution Error: " + sanitizeErrorMessage(error.message), 
+            error: true, 
+            exitCode: 1 
+        };
     }
 };
 
 /**
- * Handler for graceful shutdown
+ * Execute code locally with child_process (for development)
  */
-const cleanupContainers = async () => {
+const executeCodeLocal = async (code, language, inputs, userId) => {
+    const { spawn } = require('child_process');
+    
     try {
-        console.log("Cleaning up Docker containers...");
+        // Generate a safe, unique filename for this execution
+        const safeFilename = generateSafeFilename(userId || 'anonymous');
+        const filePath = path.join(tempDir, safeFilename);
         
-        if (gccContainer) {
-            await gccContainer.stop();
-            await gccContainer.remove();
-            console.log("GCC container stopped and removed");
-        }
+        let process;
+        let compileProcess;
         
-        if (pythonContainer) {
-            await pythonContainer.stop();
-            await pythonContainer.remove();
-            console.log("Python container stopped and removed");
+        // Prepare based on language
+        switch (language) {
+            case "C":
+                fs.writeFileSync(`${filePath}.c`, code);
+                
+                // First compile
+                return new Promise((resolve) => {
+                    compileProcess = spawn('gcc', [`${filePath}.c`, '-o', filePath]);
+                    
+                    let compileError = '';
+                    compileProcess.stderr.on('data', (data) => {
+                        compileError += data.toString();
+                    });
+                    
+                    compileProcess.on('close', (compileCode) => {
+                        if (compileCode !== 0) {
+                            // Clean up files
+                            try {
+                                if (fs.existsSync(`${filePath}.c`)) fs.unlinkSync(`${filePath}.c`);
+                            } catch (err) {
+                                console.error("Cleanup error:", err);
+                            }
+                            
+                            resolve({ 
+                                output: sanitizeErrorMessage(compileError), 
+                                error: true, 
+                                exitCode: compileCode 
+                            });
+                            return;
+                        }
+                        
+                        // Then execute
+                        process = spawn(filePath);
+                        handleExecution(process, inputs, filePath, resolve);
+                    });
+                });
+                
+            case "Python":
+                fs.writeFileSync(`${filePath}.py`, code);
+                process = spawn('python', [`${filePath}.py`]);
+                return handleExecution(process, inputs, filePath);
+                
+            default:
+                return { 
+                    output: "Unsupported language: " + language, 
+                    error: true 
+                };
         }
     } catch (error) {
-        console.error("Error during container cleanup:", error);
+        console.error("Execution Error:", error);
+        return { 
+            output: "System Error: " + sanitizeErrorMessage(error.message), 
+            error: true 
+        };
     }
 };
 
-// Initialize containers when the module is loaded
-initializeContainers().catch(error => {
-    console.error("Failed to initialize containers:", error);
-    process.exit(1);
-});
-
-// Set up cleanup on process exit
-process.on('SIGINT', async () => {
-    console.log("Received SIGINT, cleaning up...");
-    await cleanupContainers();
-    process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-    console.log("Received SIGTERM, cleaning up...");
-    await cleanupContainers();
-    process.exit(0);
-});
+/**
+ * Helper to handle process execution with input/output
+ */
+const handleExecution = (process, inputs, filePath) => {
+    return new Promise((resolve) => {
+        let output = '';
+        let error = '';
+        
+        // Handle stdout
+        process.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+        
+        // Handle stderr
+        process.stderr.on('data', (data) => {
+            error += data.toString();
+        });
+        
+        // Send inputs if provided
+        if (inputs && inputs.length > 0) {
+            process.stdin.write(inputs.join('\n'));
+            process.stdin.end();
+        }
+        
+        // Handle process completion
+        process.on('close', (code) => {
+            // Clean up files
+            try {
+                const baseFileName = filePath.replace(/\.[^/.]+$/, "");
+                if (fs.existsSync(`${baseFileName}.c`)) fs.unlinkSync(`${baseFileName}.c`);
+                if (fs.existsSync(`${baseFileName}.py`)) fs.unlinkSync(`${baseFileName}.py`);
+                if (fs.existsSync(baseFileName)) fs.unlinkSync(baseFileName);
+            } catch (err) {
+                console.error("Cleanup error:", err);
+            }
+            
+            resolve({ 
+                output: error || output, 
+                error: code !== 0 || error.length > 0,
+                exitCode: code
+            });
+        });
+        
+        // Handle timeouts
+        setTimeout(() => {
+            process.kill();
+            resolve({ 
+                output: "Execution timed out after 5 seconds", 
+                error: true, 
+                exitCode: 124 
+            });
+        }, 5000);
+    });
+};
 
 /**
  * Periodically clean up any orphaned files
