@@ -12,7 +12,7 @@ const Login = () => {
         e.preventDefault();
         setError('');
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/login', credentials);
+            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/auth/login`, credentials);
             // Extract user data and token
             const { token, user } = response.data; // Ensure backend sends 'user' along with 'token'
             // Store both user and token in localStorage
