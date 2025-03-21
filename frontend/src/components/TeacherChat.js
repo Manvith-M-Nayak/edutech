@@ -19,7 +19,7 @@ const TeacherChat = () => {
 
         const fetchUsers = async () => {
             try {
-                const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/user`, {
+                const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/user`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
